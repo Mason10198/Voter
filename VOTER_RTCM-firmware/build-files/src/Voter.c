@@ -248,6 +248,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define AFTERCW_TIME 		(350 * 8) 	// Delay to hold PTT after cw sent 350ms
 #define DSECOND_TIME 		(100 * 8) 	// Delay to hold PTT after cw sent 100ms
 #define	MAX_ALT_TIME 		(15 * 2) 	// Seconds to try alt host if not connected
+#define	PTT_IGNORE_TIME 	(100 * 8) 	// Ignore PTT for N ms after connection established
 #define	MIN_PING_TIME 		(95 * 8) 	// Minimum ping time 95ms
 #define	MISS_REPORT_TIME 	100 		// Interval between "miss packet" reports (1/10 secs)
 #define	PKT_MISS_TIME 		(500 * 8)	// 500ms for display of miss packet (winky LED) 
@@ -556,6 +557,7 @@ BOOL althost;
 BOOL lastalthost;
 BOOL altconnected;
 WORD alttimer;
+WORD ptt_ignore_timer;
 BOOL altchange;
 BOOL altchange1;
 WORD glasertimer;
@@ -1269,16 +1271,17 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 			gpskicktimer++;
 #endif
 
-		if (connected) 	// If we're connected to the host, update some timers
-		{
-			gpsforcetimer++;
-			elketimer++;
-			if (glasertimer) glasertimer--;
-			if (pingtimer) pingtimer--;
-			if (misstimer1) misstimer1--;
-		}
+	if (connected) 	// If we're connected to the host, update some timers
+	{
+		gpsforcetimer++;
+		elketimer++;
+		if (glasertimer) glasertimer--;
+		if (pingtimer) pingtimer--;
+		if (misstimer1) misstimer1--;
+		if (ptt_ignore_timer < PTT_IGNORE_TIME) ptt_ignore_timer++;
+	}
 
-		if (!connected) attempttimer++;
+	if (!connected) attempttimer++;
 		else lastrxtimer++;
 
 		termbuftimer++;
@@ -2685,10 +2688,10 @@ void process_gps(void)
 			else
 				gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) AppConfig.GPSOffset;
 
-			if (AppConfig.DebugLevel & 32)
-				printf("GPS-DEBUG: mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
-	
-			if (!USE_PPS) system_time.vtime_sec = timing_time = real_time = gps_time + 1;
+	if (AppConfig.DebugLevel & 32)
+		printf("GPS-DEBUG: mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
+
+		  if (!USE_PPS) system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			return;
 		}
 	
@@ -3258,12 +3261,16 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				{
 					mydigest = crc32_bufs((BYTE *)challenge,(BYTE *)AppConfig.HostPassword);
 				
-					if (mydigest == ntohl(audio_packet.vph.digest))
+				if (mydigest == ntohl(audio_packet.vph.digest))
+				{
+					digest = mydigest;
+			
+					if (!connected) 
 					{
-						digest = mydigest;
-				
-						if (!connected) gpsforcetimer = 0;
-				
+						gpsforcetimer = 0;
+						ptt_ignore_timer = 0;
+					}
+			
 						connected = 1;
 						lastrxtimer = 0;
 				
@@ -3293,13 +3300,17 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						SetAudioSrc();
 					}
 				}
-				else
-				{
-					BYTE wconnected;
-				
-					wconnected = connected;
+			else
+			{
+				BYTE wconnected;
+			
+				wconnected = connected;
 
-					if (!connected) gpsforcetimer = 0;
+				if (!connected) 
+				{
+					gpsforcetimer = 0;
+					ptt_ignore_timer = 0;
+				}
 
 					connected = 1;
 					lastrxtimer = 0;
@@ -4018,7 +4029,7 @@ void secondary_processing_loop(void)
 						ptt = 0;
 						SetPTT(0);
 					}
-					else if ((!ptt) && (txseqno <= (txseqno_ptt + 2)) && qualtx)
+					else if ((!ptt) && (txseqno <= (txseqno_ptt + 2)) && qualtx && (ptt_ignore_timer >= PTT_IGNORE_TIME))
 					{
 						host_ptt = 1;
 						ptt = 1;
@@ -4041,7 +4052,7 @@ void secondary_processing_loop(void)
 						ptt = 0;
 						SetPTT(0);
 					}
-					else if ((!ptt) && (z <= 60L) && qualtx)
+					else if ((!ptt) && (z <= 60L) && qualtx && (ptt_ignore_timer >= PTT_IGNORE_TIME))
 					{
 						host_ptt = 1;
 						ptt = 1;
