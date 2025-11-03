@@ -6742,7 +6742,7 @@ static void InitAppConfig(void)
 	AppConfig.HangTime = 15;
 	AppConfig.CTCSSTone = 0.0;
 	AppConfig.CTCSSLevel = 3000;
-	AppConfig.PPSPolarity = 2;
+	AppConfig.PPSPolarity = 0;
 	AppConfig.GPSTbolt = 0;
 	AppConfig.GPSOffset = 0;
 	AppConfig.Squelch = 400;
