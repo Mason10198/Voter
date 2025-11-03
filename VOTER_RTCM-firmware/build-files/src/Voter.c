@@ -7,6 +7,7 @@
 * Chuck Henderson, WB9UUS <wb9uus@liandee.com>
 * Lee Woldanski, VE7FET <ve7fet@tparc.org>
 * David Maciorowski, WA1JHK
+* Mason Nelson, N5LSN <mason@n5lsn.com>
 *
 * This file is part of the VOTER System Project 
 *
@@ -106,9 +107,9 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "3.00 BEW 3/24/2021";
+	char	VERSION[] = "3.10 BEW 11/1/2025";
 #else
-	char	VERSION[] = "3.00 3/24/2021";
+	char	VERSION[] = "3.10 11/1/2025";
 #endif
 
 #define M_PI       3.14159265358979323846
@@ -224,7 +225,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define	ADCSQNOISE 		0	// Index for squelch noise (RSSI) ADC channel
 #define	ADCDIODE 		2	// Index for diode voltage channel
 #define	ADCSQPOT 		1	// Index for squelch pot position channel
-#define DEFAULT_VOTER_PORT 	667		// Default UDP port to send on
+#define DEFAULT_VOTER_PORT 	1667		// Default UDP port to send on
 #define	PPS_WARN_TIME 		(1200 * 8) 	// 1200ms PPS Warning Time
 #define PPS_MAX_TIME 		(2400 * 8) 	// 2400 ms PPS Timeout
 #define	PPS_MUSTA_TIME 		(950 * 8)
@@ -6721,7 +6722,7 @@ static void InitAppConfig(void)
 	AppConfig.DefaultSecondaryDNSServer.v[3] = 0;
 
 	AppConfig.TxBufferLength = DEFAULT_TX_BUFFER_LENGTH;
-	AppConfig.VoterServerPort = 667;
+	AppConfig.VoterServerPort = 1667;
 	AppConfig.GPSBaudRate = 4800;
 	strcpy(AppConfig.Password,"radios");
 	strcpy(AppConfig.HostPassword,"BLAH");
