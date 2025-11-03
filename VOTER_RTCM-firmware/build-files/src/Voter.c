@@ -6723,7 +6723,7 @@ static void InitAppConfig(void)
 
 	AppConfig.TxBufferLength = DEFAULT_TX_BUFFER_LENGTH;
 	AppConfig.VoterServerPort = 1667;
-	AppConfig.GPSBaudRate = 4800;
+	AppConfig.GPSBaudRate = 9600;
 	strcpy(AppConfig.Password,"radios");
 	strcpy(AppConfig.HostPassword,"BLAH");
 	strcpy(AppConfig.VoterServerFQDN,"voter-demo.allstarlink.org");
