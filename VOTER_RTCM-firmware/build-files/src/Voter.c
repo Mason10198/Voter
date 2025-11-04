@@ -144,10 +144,6 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 
 
-#ifndef	DSPBEW
-	#define	DIAGMENU
-#endif // dspbew
-
 #else
 	// Register addresses in the MCP23S17 IO Expander
 	#define	IOEXP_IODIRA 0
@@ -183,11 +179,6 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 	
 	#define TESTBIT _LATA1
 	#define	TESTBIT_TRIS TRISAbits.TRISA1
-
-// Disable DIAGMENU if we are building DSPBEW option firmware
-#ifndef	DSPBEW
-	#define	DIAGMENU
-#endif // dspbew
 
 #endif // smt
 
@@ -259,7 +250,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define ADD_1024_WEEKS 		619315200 	// 1024 weeks for Tbolt time fudge
 #define	ULAW_SILENCE 		0xff		// Clamp audio for ulaw silence
 #define	ADPCM_SILENCE 		0		// Clamp audio for ADPCM silence
-#define	USE_PPS ((AppConfig.PPSPolarity != 2) && (!indiag))	// 1 if PPS is != ignore and not in diagnostic mode
+#define	USE_PPS (AppConfig.PPSPolarity != 2)	// 1 if PPS is != ignore
 #define	DIAG_WAIT_UART 		(TICK_SECOND / 3ul)	
 #define	DIAG_WAIT_MEAS 		(TICK_SECOND * 2)
 #define	DIAG_NOISE_GAIN 	0x28
@@ -536,7 +527,6 @@ long txseqno;
 DWORD elketimer;
 WORD testidx;
 short *testp;
-BOOL indiag;
 BYTE leddiag;
 BYTE diagstate;
 BYTE measretstate;
@@ -994,7 +984,7 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 #endif
 	if (ppsx || (ppstimer >= PPS_MUSTA_TIME))
 	{
-		if (USE_PPS && (!indiag))
+		if (USE_PPS)
 		{
 			ppstimer = 0;
 			ppswarn = 0;
@@ -1945,8 +1935,7 @@ void SetAudioSrc(void)
 {
 	BYTE myflags;
 
-	if (indiag) myflags = diag_option_flags;
-	else if (!connected) 
+	if (!connected) 
 	{
 		myflags = 0;
 
@@ -2119,8 +2108,7 @@ void SetAudioSrc(void)
 
 	BYTE oldout,myflags;
 
-	if (indiag) myflags = diag_option_flags;
-	else if (!connected) 
+	if (!connected) 
 	{
 		myflags = 0;
 
@@ -2168,7 +2156,6 @@ void RTCM_Reset(void)
 
 BOOL HasCOR(void)
 {
-	if (indiag) return(0);
 	if (AppConfig.CORType == 2) return(0);
 	if (AppConfig.CORType == 1) return(1);
 	return (cor);
@@ -2176,7 +2163,6 @@ BOOL HasCOR(void)
 
 BOOL HasCTCSS(void)
 {
-	if (indiag) return(0);
 	if (!AppConfig.ExternalCTCSS) return (1);
 	if (AppConfig.ExternalCTCSS == 3) return (0);
 	if ((AppConfig.ExternalCTCSS == 1) && CTCSSIN) return (1);
@@ -2567,8 +2553,6 @@ void process_gps(void)
 
 	// Please see doubleify.c for explanation of this poo-poo
 	extern float doubleify(BYTE *p);
-	
-	if (indiag) return;
 
 #ifdef	GGPS
 	if (gps_state == GPS_STATE_SYNCED)
@@ -3062,8 +3046,6 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	mysystem_time = system_time;
 	mytxseqno = txseqno;
 	myhost_txseqno = host_txseqno;
-
-	if (indiag) return;
 
 	if (filled && (gpssync || (!USE_PPS)) && (!time_filled))
 	{
@@ -3716,31 +3698,6 @@ void secondary_processing_loop(void)
 				ipsubnet[] = "Subnet Mask: ",
 				ipgateway[] = "Gateway Addr: ";
 
-#ifdef	DIAGMENU
-	static ROM char 	diagerr1[] = "Error - Failed to read PTT/CTCSS in un-asserted state\n",
-				diagerr2[] = "Error - Failed to read PTT/CTCSS in asserted state\n",
-				diagerr3[] = "Error - Failed to read data from GPS UART\n",
-				diagfail[] = "  \nDiagnostics Failed With %d Errors!!!!\n",
-				diagpass[] = " \nDiagnostics Passed Successfully\n",
-				diag1[] = "Testing PTT/External CTCSS\n",
-				diag2[] = "Testing GPS UART\n",
-				measerr[] = "Error -- Measured %u, should have been between %u and %u\n",
-				measmsg[] = "Testing level at %d Hz for %s\n",
-				flat_test_str[] = "Normal Audio",plfilt_test_str[] = "CTCSS Filtered Audio",
-				deemp_test_str[] = "De-Emphasized Audio",
-				sql_test_str[] = "Squelch Noise Detector";
-
-	static ROM struct 	meas flat_test[] = 	{{100,9750,13350,0},{320,10655,14416,0},{500,10485,14186,0},
-							{1000,9798,13257,0},{2000,8989,12162,0},{3200,6929,9374,0},{0,0,0,0}}, 
-				plfilt_test[] = 	{{100,100,451,0},{320,10655,14416,0},{500,10485,14186,0},
-							{1000,9798,13257,0},{2000,8989,12162,0},{3200,6929,9374,0},{0,0,0,0}}, 
-				deemp_test[] = 		{{1000,9798,13257,0},{2000,4380,6155,0},{3200,2271,3073,0},{0,0,0,0}}, 
-				sql_test[] = 		{{3200,0,50,1},{6000,200,375,1},{7200,500,1023,1},{0,0,0,0} };
-
-	static ROM BYTE 	diaguart[] = {0x55,0xaa,0x69,0};
-
-#endif
-
 	static DWORD t = 0, t1 = 0, t2 = 0, tdisp = 0;
 
 	long meas,thresh;
@@ -3755,11 +3712,6 @@ void secondary_processing_loop(void)
 #ifdef	DSPBEW
 	BYTE qualnoise;
 	static BYTE qualcnt = 255;
-#endif
-
-#ifdef	DIAGMENU
-	struct meas *m;
-	static DWORD tdiag = 0;
 #endif
 
 #ifdef GGPS
@@ -3802,9 +3754,7 @@ void secondary_processing_loop(void)
 	}
 #endif
 
-	if (!indiag)
-	{
-		if (gps_state != GPS_STATE_IDLE)
+	if (gps_state != GPS_STATE_IDLE)
 		{
 			if ((!gpswarn) && (gpstimer > ((AppConfig.GPSProto == GPS_TSIP) ? GPS_TSIP_WARN_TIME : GPS_NMEA_WARN_TIME)))
 			{
@@ -3938,7 +3888,7 @@ void secondary_processing_loop(void)
 						vnoise32 = ((vnoise32 * 3) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 2;
 				}
 
-				if ((!connected) && (!indiag) && (!qualcor) && wascor && (gpssync || (!USE_PPS) || (!SIMULCAST_ENABLE)))
+				if ((!connected) && (!qualcor) && wascor && (gpssync || (!USE_PPS) || (!SIMULCAST_ENABLE)))
 				{
 					if (AppConfig.FailMode == 2) needburp = 1;
 
@@ -3977,12 +3927,11 @@ void secondary_processing_loop(void)
 				}
 			}
 
-			if (!CAL) SetLED(SQLED,sqled);
-		}
+	if (!CAL) SetLED(SQLED,sqled);
 
-		z = 100000;
-		x = system_time.vtime_sec - lastrxtime.vtime_sec;
-		isoffline = ((!connected) && (AppConfig.FailMode == 3));
+	z = 100000;
+	x = system_time.vtime_sec - lastrxtime.vtime_sec;
+	isoffline = ((!connected) && (AppConfig.FailMode == 3));
 
 		if ((isoffline || DUPLEX3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
 		{
@@ -4103,8 +4052,6 @@ void secondary_processing_loop(void)
 	if(TickGet() - t1 >= TICK_SECOND / 6ul)
 	{
 		t1 = TickGet();
-
-		if (indiag) ToggleLED(SYSLED);
 	}
 
 	// Blink LEDs as appropriate
@@ -4123,17 +4070,14 @@ void secondary_processing_loop(void)
 		alttimer++;
 		t = TickGet();
 
-		if (!indiag)
+		ToggleLED(SYSLED);
+
+		if (LEVDISP)
 		{
-			ToggleLED(SYSLED);
-
-			if (LEVDISP)
-			{
-				if ((gps_state == GPS_STATE_VALID) && USE_PPS) ToggleLED(GPSLED);
-			}
-
-			if (CAL && (AppConfig.CORType == 0) && (lastcor && (!HasCTCSS()))) ToggleLED(SQLED);
+			if ((gps_state == GPS_STATE_VALID) && USE_PPS) ToggleLED(GPSLED);
 		}
+
+		if (CAL && (AppConfig.CORType == 0) && (lastcor && (!HasCTCSS()))) ToggleLED(SQLED);
 #ifdef	SILLY
 	printf("%lu\n",sillyval);
 #endif	
@@ -4146,7 +4090,7 @@ void secondary_processing_loop(void)
 	{
        		tdisp = TickGet();
 
-		if (indiag || (HasCOR() && HasCTCSS()))
+		if (HasCOR() && HasCTCSS())
 			meas = apeak;
 		else
 			meas = 0;
@@ -4223,195 +4167,6 @@ void secondary_processing_loop(void)
 	}
 #endif
 
-#ifdef	DIAGMENU
-
-	// "Diagnostic Suite" handler
-	if (indiag && (tdiag < TickGet()))
-	{
-		// If we have a result, perform measurement and check results
-		if (measp && measidx)
-		{
-			BOOL isok = 1;
-			DWORD accum = 0;
-			WORD aval;
-			short sqlval = adcothers[ADCSQNOISE] - (AppConfig.SqlDiode - adcothers[ADCDIODE]);
-	
-			m = (measp + (measidx - 1));
-			for(i = 0; i < NAPEAKS; i++) accum += apeaks[i];
-			aval = (WORD)(accum / NAPEAKS);
-
-			if (sqlval < 0) sqlval = 0;
-
-			if (m->issql)
-			{
-				if ((sqlval < m->min) || (sqlval > m->max)) isok = 0;
-			}
-			else
-			{
-				if ((aval < m->min) || (aval > m->max)) isok = 0;
-			}
-
-			if (!isok) 
-			{
-				printf(measerr,(m->issql) ? sqlval : aval,m->min,m->max);
-				errcnt++;
-			}
-			
-			// Grab next "step" in current measurement sequence
-			measidx++;
-			m = (measp + (measidx - 1));
-			memset(apeaks,0,sizeof(apeaks));
-
-			// If no more steps
-			if (!m->freq) 
-			{
-				measp = 0;
-				measidx = 0;
-				measstr = 0;
-			}
-			// Otherwise set new freq and start new measurement
-			else
-			{
-				SetTxTone(m->freq);
-				tdiag = TickGet() + DIAG_WAIT_MEAS;
-
-				if (measstr) printf(measmsg,m->freq,measstr);
-			}
-		}
-
-		if (!measp)
-		{
-			// State machine for various steps of diagnostics
-			switch(diagstate)
-			{
-				case 1: // Make sure PTT is seen in both states and
-					// set up UART and send test data
-					printf(diag1);
-					SetPTT(0);
-					Nop();
-					Nop();
-					Nop();
-					Nop();
-
-					if (!CTCSSIN)
-					{
-						errcnt++;
-						printf(diagerr1);
-					}
-
-					SetPTT(1);
-					Nop();
-					Nop();
-					Nop();
-					Nop();
-
-					if (CTCSSIN)
-					{
-						errcnt++;
-						printf(diagerr2);
-					}
-
-					printf(diag2);
-					U2MODEbits.URXINV = 0;
-					U2STAbits.UTXINV = 0;
-
-					while (DataRdyUART2()) ReadUART2();
-
-					putrsUART2((ROM char *)diaguart);
-					diagstate = 2;
-					tdiag = TickGet() + DIAG_WAIT_UART; // Wait 333 ms
-					break;
-
-				case 2: // see if UART got test data okay
-					for(i = 0; diaguart[i]; i++)
-					{
-						if (!DataRdyUART2()) break;
-						if (ReadUART2() != diaguart[i]) break;
-					}
-
-					if (diaguart[i] || DataRdyUART2())
-					{
-						errcnt++;
-						printf(diagerr3);
-					}
-#if defined(SMT_BOARD)
-					U2MODEbits.URXINV = AppConfig.GPSPolarity;
-					U2STAbits.UTXINV = AppConfig.GPSPolarity;
-#else
-					U2MODEbits.URXINV = AppConfig.GPSPolarity ^ 1;
-					U2STAbits.UTXINV = AppConfig.GPSPolarity ^ 1;
-#endif
-					// Perform measurement sequence with no filters on audio
-					diag_option_flags = OPTION_FLAG_FLATAUDIO | OPTION_FLAG_NOCTCSSFILTER;
-					SetAudioSrc();
-					diagstate = 3;
-					measp = (struct meas *)flat_test;
-					measstr = (char *)flat_test_str;
-					measidx = 1;
-					m = (measp + (measidx - 1));
-					memset(apeaks,0,sizeof(apeaks));
-					SetTxTone(m->freq);
-					tdiag = TickGet() + DIAG_WAIT_MEAS;
-					printf(measmsg,m->freq,measstr);
-					break;
-
-				case 3: // Perform measurement sequence with de-demphasis enabled
-					diag_option_flags = OPTION_FLAG_FLATAUDIO;
-					SetAudioSrc();
-					diagstate = 4;
-					measp = (struct meas *)plfilt_test;
-					measstr = (char *)plfilt_test_str;
-					measidx = 1;
-					m = (measp + (measidx - 1));
-					memset(apeaks,0,sizeof(apeaks));
-					SetTxTone(m->freq);
-					tdiag = TickGet() + DIAG_WAIT_MEAS;
-					printf(measmsg,m->freq,measstr);
-					break;
-
-				case 4: // Perform measurement sequence with CTCSS filter enabled
-					diag_option_flags = OPTION_FLAG_NOCTCSSFILTER;
-					SetAudioSrc();
-					diagstate = 5;
-					measp = (struct meas *)deemp_test;
-					measstr = (char *)deemp_test_str;
-					measidx = 1;
-					m = (measp + (measidx - 1));
-					memset(apeaks,0,sizeof(apeaks));
-					SetTxTone(m->freq);
-					tdiag = TickGet() + DIAG_WAIT_MEAS;
-					printf(measmsg,m->freq,measstr);
-					break;
-
-				case 5: // Perform measurement sequence of squelch noise detector
-					diag_option_flags = 0;
-					SetAudioSrc();
-					diagstate = 255;
-					measp = (struct meas *)sql_test;
-					measstr = (char *)sql_test_str;
-					measidx = 1;
-					m = (measp + (measidx - 1));
-					set_atten(DIAG_NOISE_GAIN);
-					memset(apeaks,0,sizeof(apeaks));
-					SetTxTone(m->freq);
-					tdiag = TickGet() + DIAG_WAIT_MEAS;
-					printf(measmsg,m->freq,measstr);
-					break;
-
-				case 255: // No more measurements to do
-					tdiag = 0;
-
-					if (errcnt) printf(diagfail,errcnt);
-					else printf(diagpass);
-
-					printf(paktc);
-					diagstate = 0;
-					break;
-			}
-		}
-	}
-#endif
-
 	if (gotbadmix)
 	{
 		printf(logtime());
@@ -4471,9 +4226,7 @@ void secondary_processing_loop(void)
 		missed = 0;
 	}
 
-	if (!indiag)
-	{
-		if ((!connected) && connrep)
+	if ((!connected) && connrep)
 		{
 			printf(logtime());
 			printf(losthost,(althost) ? "Alt" : "Pri");
@@ -4534,7 +4287,6 @@ void secondary_processing_loop(void)
 			domorse((char *)AppConfig.FailString);
 			failtimer = 0;
 		}
-	}
 
 	// If the local IP address has changed (ex: due to DHCP lease change)
 	// write the new IP address to the LCD display, UART, and Announce 
@@ -4792,200 +4544,6 @@ static void SetDynDNS(void)
 		DDNSClient.Host.szRAM = AppConfig.DynDNSHost;
 	}
 }
-
-/*****************************************************************************/
-//									     //
-//		Diagnostic Menu (not included if BEW is enabled)	     //
-//									     //
-//		2021/03/24 Deleted diag cable display option to make space   //
-//									     //
-/*****************************************************************************/
-#ifdef	DIAGMENU
-static void DiagMenu()
-{
-
-	indiag = 1; 
-	gps_state = GPS_STATE_IDLE;
-
-	if (USE_PPS)
-	{
-		connected = 0;
-		resp_digest = 0;
-		digest = 0;
-		their_challenge[0] = 0;
-		lastrxtimer = 0;
-		DAC1CONbits.DACEN = 1;
-		IEC4bits.DAC1LIE = 1;
-	}
-
-	gpssync = 0;
-	gotpps = 0;
-	ppscount = 0;
-	hangtimer = 0;
-	connfail = 0;
-	connrep = 0;
-	
-	while(1) 
-	{
-		int i,sel;
-
-	ROMNOBEW char menu[] = "Select the following Diagnostic functions:\n\n" 
-		"1  - Set Initial Tone Level (and assert PTT)\n"
-		"2  - Display Value of DIP Switches\n"
-		"3  - Flash LED's in sequence\n"
-		"4  - Run entire diag suite\n",
-		entsel[] = "Enter Selection (1-4,x,q,r) : ",
-		settone[] = "Adjust Tx Level for 1V P-P (1 KHz) on output, then adjust Rx Level\nto \"5 KHz\" on display\n\n",
-		dipstr[] = "Dip Switch Values\n\n   SW1    SW2    SW3    SW4\n",
-		diodewarn[] = "Warning!! VF Diode NOT calibrated!!!\n\n",
-		ledstr[] = "LED's will flash as follows: Squelch (Top Green), GPS (Middle Yellow),\n"
-				"PTT (Red), Host (Top, Right Yellow). System LED will continue flashing\nat fast speed.\n",
-		diagstr[] = "Running Diagnostics...\n\n";
-
-		printf(menu);
-		printf("x -  ");
-		printf(str_exit_menu);
-		printf(" Diagnostic Menu (");
-		printf(str_back_main);
-		printf(")\nq - ");
-		printf(str_disconnect);
-		printf(", r - ");
-		printf(str_reboot);
-		printf("\n\n");
-		fflush(stdout);
-		SetLED(SQLED,0);
-		SetLED(GPSLED,0);
-		SetLED(CONNLED,0);
-		SetPTT(0);
-		aborted = 0;
-
-		while(!aborted)
-		{
-			printf(entsel);
-			memset(cmdstr,0,sizeof(cmdstr));
-
-			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) continue;
-
-			if (!strchr(cmdstr,'!')) break;
-		}
-
-		if (aborted) continue;
-
-		if ((strchr(cmdstr,'Q')) || strchr(cmdstr,'q'))
-		{
-			CloseTelnetConsole();
-			continue;
-		}
-	
-		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r'))
-		{
-			CloseTelnetConsole();
-			printf(booting);
-			RTCM_Reset();
-		}
-
-		if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x'))
-		{
-			break;
-		}
-
-		printf(" \n");
-
-		sel = atoi(cmdstr);
-
-		switch(sel)
-		{
-			case 1: // Send 1000Hz Tone, Display RX Level Quasi-Graphically 
-				SetPTT(1); 
-				SetTxTone(1000);
-				printf(settone);
-			 	putchar(' ');
-				
-				for(i = 0; i < NCOLS; i++) putchar(' ');
-				
-				printf(rxvoicestr);
-				indisplay = 1;
-				myfgets(cmdstr,sizeof(cmdstr) - 1);
-				indisplay = 0;
-				SetPTT(0);
-				SetTxTone(0);
-				continue;
-
-			case 2: // Dip Switch test  
-				printf(dipstr);
-				indipsw = 1;
-				myfgets(cmdstr,sizeof(cmdstr) - 1);
-				indipsw = 0;
-				printf("\n\n");
-				continue;
-
-			case 3: // Flash LED's
-				printf(ledstr);
-				leddiag = 1;
- 				printf(paktc);
-				fflush(stdout);
-				myfgets(cmdstr,sizeof(cmdstr) - 1);
-				leddiag = 0;
-				printf("\n\n");
-				continue;
-
-			case 4: // Run diags
-				printf(diagstr);
-
-				if (!AppConfig.SqlDiode) printf(diodewarn);
-
-				errcnt = 0;
-				diagstate = 1;
-				fflush(stdout);
-				myfgets(cmdstr,sizeof(cmdstr) - 1);
-				measp = 0;
-				measidx = 0;
-				measstr = 0;
-#if defined(SMT_BOARD)
-				U2MODEbits.URXINV = AppConfig.GPSPolarity;
-				U2STAbits.UTXINV = AppConfig.GPSPolarity;
-#else
-				U2MODEbits.URXINV = AppConfig.GPSPolarity ^ 1;
-				U2STAbits.UTXINV = AppConfig.GPSPolarity ^ 1;
-#endif
-				diagstate = 0;
-				printf("\n\n");
-				continue;
-
-			default:
-				printf(invalselection);
-				continue;
-		}
-	}
-
-	SetTxTone(0);
-	SetPTT(0);
-	ptt = 0;
-	UDPFlush();
-	set_atten(noise_gain);
-	hangtimer = 0;
-	connfail = 0;
-	connrep = 0;
-	lastrxtime.vtime_sec = 0;
-	lastrxtime.vtime_nsec = 0;
-	txseqno = 0;
-	txseqno_ptt = 0;
-	host_txseqno = 0;
-	digest = 0;
-	SetAudioSrc();
-	gpssync = 0;
-	gotpps = 0;
-	ppscount = 0;
-
-	if (USE_PPS)
-	{
-		DAC1CONbits.DACEN = 0;
-		while(!DAC1CONbits.DACEN) ClrWdt();
-		RTCM_Reset();
-	}
-	indiag = 0;
-}
-#endif // diagmenu
 
 /*****************************************************************************/
 //									     //
@@ -5691,7 +5249,7 @@ int main(void)
 		"19 - Simulcast Launch Delay (%u) (approx 200 ns, 5 = 1us, > 0 to ENA SC)\n"
 		"97 - RX Level,  "
 		"98 - Status,  ",
-		entsel[] = "Enter Selection (1-19,81-82,97-99,i,o,s,r,q,d) : ";
+		entsel[] = "Enter Selection (1-19,81-82,97-99,i,o,s,r,q) : ";
 
 
 	static ROM char oprdata[] = "S/W Version: %s\n"
@@ -5809,7 +5367,6 @@ int main(void)
 	elketimer = 0;
 	testidx = 0;
 	testp = 0;
-	indiag = 0;
 	errcnt = 0;
 	measp = 0;
 	measstr = 0;
@@ -6045,13 +5602,6 @@ int main(void)
 		if ((!netisup) && ((!AppConfig.Flags.bIsDHCPEnabled) || (!AppConfig.Flags.bInConfigMode)))
 			netisup = 1;
 
-		if (indiag) 
-		{	
-			SetPTT(0);
-			set_atten(noise_gain);
-		}
-
-		indiag = 0;
 		SetAudioSrc();
 		printf(menu1,AppConfig.SerialNumber,AppConfig.MyMACAddr.v[0],AppConfig.MyMACAddr.v[1],AppConfig.MyMACAddr.v[2],
 			AppConfig.MyMACAddr.v[3],AppConfig.MyMACAddr.v[4],AppConfig.MyMACAddr.v[5]);
@@ -6080,7 +5630,7 @@ int main(void)
 		printf(str_disconnect);
 		printf(", r - ");
 		printf(str_reboot);
-		printf(", d - diagnostics\n\n");
+		printf("\n\n");
 		aborted = 0;
 
 		while(!aborted)
@@ -6107,13 +5657,7 @@ int main(void)
 			printf(booting);
 			RTCM_Reset();
 		}
-#ifdef	DIAGMENU
-		if ((strchr(cmdstr,'D')) || strchr(cmdstr,'d'))
-		{
-			DiagMenu();
-			continue;
-		}
-#endif
+
 		if ((strchr(cmdstr,'I')) || strchr(cmdstr,'i'))
 		{
 			IPMenu();
