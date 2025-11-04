@@ -315,6 +315,28 @@ enum {GPS_STATE_IDLE,GPS_STATE_RECEIVED,GPS_STATE_VALID,GPS_STATE_SYNCED} ;
 enum {GPS_NMEA,GPS_TSIP} ;
 enum {CODEC_ULAW,CODEC_ADPCM} ;
 
+/* ========== Phase 1: Consolidated String Literals ========== */
+
+// Common IP address format strings
+ROM char fmt_ip[] = "%d.%d.%d.%d";
+ROM char fmt_ip_newline[] = "%d.%d.%d.%d\n";
+
+// Common menu fragments
+ROM char str_save_eeprom[] = "99 - Save Values to EEPROM\n";
+ROM char str_enter_selection[] = "Enter Selection";
+ROM char str_exit_menu[] = "Exit";
+ROM char str_disconnect[] = "Disconnect Remote Console Session";
+ROM char str_reboot[] = "reboot system";
+ROM char str_back_main[] = "back to main menu";
+
+// Common error/status messages
+ROM char err_invalid_prefix[] = "Invalid Entry, ";
+ROM char err_noentry_prefix[] = "No Entry Made, ";
+ROM char err_not_changed[] = "Value Not Changed\n";
+ROM char msg_changed_success[] = "Value Changed Successfully\n";
+ROM char msg_error_prefix[] = "  ERROR! ";
+
+// Original strings (some now use consolidated strings)
 ROM char 	gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", 
 		gpsmsg2[] = "GPS signal acquired, number of satellites in view = ",
 		gpsmsg3[] = "  Time now syncronized to GPS\n", 
@@ -3676,23 +3698,23 @@ void secondary_processing_loop(void)
 
 	static ROM char  	cfgwritten[] = "Squelch calibration saved, noise gain = ",
 				diodewritten[] = "Diode calibration saved, value (hex) = ",
-				dnschanged[] = "  Voter Host DNS Resolved to %d.%d.%d.%d\n", 
+				dnschanged[] = "  Voter Host DNS Resolved to ",
 				dnsfailed[] = "  Warning: Unable to resolve DNS for Voter Host %s\n",
-				altdnschanged[] = "  Alternate Voter Host DNS Resolved to %d.%d.%d.%d\n", 
+				altdnschanged[] = "  Alternate Voter Host DNS Resolved to ",
 				altdnsfailed[] = "  Warning: Unable to resolve DNS for Alternate Voter Host %s\n",
-				altdnshost[] = "  Using Alternate Voter Host (%d.%d.%d.%d)\n", 
-				dnshost[] = "  Using Primary Voter Host (%d.%d.%d.%d)\n",
-				dnsusing[] = "  Connection Using Voter Host (%d.%d.%d.%d)\n",
+				altdnshost[] = "  Using Alternate Voter Host (",
+				dnshost[] = "  Using Primary Voter Host (",
+				dnsusing[] = "  Connection Using Voter Host (",
 				miss_str[] = "  Inbound (Eth Rx) packet out of bounds by: %ld\n",
-				gothost[] = "  Host Connection established (%s) (%d.%d.%d.%d)\n", 
-				losthost[] = "  Host Connection Lost (%s) (%d.%d.%d.%d)\n";	
+				gothost[] = "  Host Connection established (%s) (",
+				losthost[] = "  Host Connection Lost (%s) (";
 	
 	static ROM char 	ipinfo[] = "\nIP Configuration Info: \n",
 				ipwithdhcp[] = "Configured With DHCP\n",
 				ipwithstatic[] = "Static IP Configuration\n", 
-				ipipaddr[] = "IP Address: %d.%d.%d.%d\n",
-				ipsubnet[] = "Subnet Mask: %d.%d.%d.%d\n", 
-				ipgateway[] = "Gateway Addr: %d.%d.%d.%d\n";
+				ipipaddr[] = "IP Address: ",
+				ipsubnet[] = "Subnet Mask: ",
+				ipgateway[] = "Gateway Addr: ";
 
 #ifdef	DIAGMENU
 	static ROM char 	diagerr1[] = "Error - Failed to read PTT/CTCSS in un-asserted state\n",
@@ -4407,7 +4429,8 @@ void secondary_processing_loop(void)
 	if (dnsnotify == 1)
 	{
 		printf(logtime());
-		printf(dnschanged,MyVoterAddr.v[0],MyVoterAddr.v[1],MyVoterAddr.v[2],MyVoterAddr.v[3]);
+		printf(dnschanged);
+		printf(fmt_ip_newline,MyVoterAddr.v[0],MyVoterAddr.v[1],MyVoterAddr.v[2],MyVoterAddr.v[3]);
 	}
 	else if (dnsnotify == 2) 
 	{
@@ -4420,7 +4443,8 @@ void secondary_processing_loop(void)
 	if (altdnsnotify == 1)
 	{
 		printf(logtime());
-		printf(altdnschanged,MyAltVoterAddr.v[0],MyAltVoterAddr.v[1],MyAltVoterAddr.v[2],MyAltVoterAddr.v[3]);
+		printf(altdnschanged);
+		printf(fmt_ip_newline,MyAltVoterAddr.v[0],MyAltVoterAddr.v[1],MyAltVoterAddr.v[2],MyAltVoterAddr.v[3]);
 	}
 	else if (altdnsnotify == 2) 
 	{
@@ -4452,13 +4476,17 @@ void secondary_processing_loop(void)
 		if ((!connected) && connrep)
 		{
 			printf(logtime());
-			printf(losthost,(althost) ? "Alt" : "Pri",CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
+			printf(losthost,(althost) ? "Alt" : "Pri");
+			printf(fmt_ip,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
+			printf(")\n");
 			connrep = 0;
 		}
 		else if (connected && (!connrep))
 		{
 			printf(logtime());
-			printf(gothost,(althost) ? "Alt" : "Pri",CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
+			printf(gothost,(althost) ? "Alt" : "Pri");
+			printf(fmt_ip,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
+			printf(")\n");
 			connrep = 1;
 		}
 
@@ -4521,9 +4549,12 @@ void secondary_processing_loop(void)
 		else
 			printf(ipwithstatic);
 
-		printf(ipipaddr,AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3]);
-		printf(ipsubnet,AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3]);
-		printf(ipgateway,AppConfig.MyGateway.v[0],AppConfig.MyGateway.v[1],AppConfig.MyGateway.v[2],AppConfig.MyGateway.v[3]);
+		printf(ipipaddr);
+		printf(fmt_ip_newline,AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3]);
+		printf(ipsubnet);
+		printf(fmt_ip_newline,AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3]);
+		printf(ipgateway);
+		printf(fmt_ip_newline,AppConfig.MyGateway.v[0],AppConfig.MyGateway.v[1],AppConfig.MyGateway.v[2],AppConfig.MyGateway.v[3]);
 
 		#if defined(STACK_USE_ANNOUNCE)
 			AnnounceIP();
@@ -4536,15 +4567,25 @@ void secondary_processing_loop(void)
 		{
 			printf(logtime());
 			if (althost)
-				printf(altdnshost,MyAltVoterAddr.v[0],MyAltVoterAddr.v[1],MyAltVoterAddr.v[2],MyAltVoterAddr.v[3]);
+			{
+				printf(altdnshost);
+				printf(fmt_ip,MyAltVoterAddr.v[0],MyAltVoterAddr.v[1],MyAltVoterAddr.v[2],MyAltVoterAddr.v[3]);
+				printf(")\n");
+			}
 			else
-				printf(dnshost,MyVoterAddr.v[0],MyVoterAddr.v[1],MyVoterAddr.v[2],MyVoterAddr.v[3]);
+			{
+				printf(dnshost);
+				printf(fmt_ip,MyVoterAddr.v[0],MyVoterAddr.v[1],MyVoterAddr.v[2],MyVoterAddr.v[3]);
+				printf(")\n");
+			}
 		}
 
 		if (altchange1)
 		{
 			printf(logtime());
-			printf(dnsusing,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
+			printf(dnsusing);
+			printf(fmt_ip,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
+			printf(")\n");
 		}
 	}
 
@@ -4792,8 +4833,7 @@ static void DiagMenu()
 		"1  - Set Initial Tone Level (and assert PTT)\n"
 		"2  - Display Value of DIP Switches\n"
 		"3  - Flash LED's in sequence\n"
-		"4  - Run entire diag suite\n"
-		"x -  Exit Diagnostic Menu (back to main menu)\nq - Disconnect Remote Console Session, r - reboot system\n\n",
+		"4  - Run entire diag suite\n",
 		entsel[] = "Enter Selection (1-4,x,q,r) : ",
 		settone[] = "Adjust Tx Level for 1V P-P (1 KHz) on output, then adjust Rx Level\nto \"5 KHz\" on display\n\n",
 		dipstr[] = "Dip Switch Values\n\n   SW1    SW2    SW3    SW4\n",
@@ -4803,6 +4843,15 @@ static void DiagMenu()
 		diagstr[] = "Running Diagnostics...\n\n";
 
 		printf(menu);
+		printf("x -  ");
+		printf(str_exit_menu);
+		printf(" Diagnostic Menu (");
+		printf(str_back_main);
+		printf(")\nq - ");
+		printf(str_disconnect);
+		printf(", r - ");
+		printf(str_reboot);
+		printf("\n\n");
 		fflush(stdout);
 		SetLED(SQLED,0);
 		SetLED(GPSLED,0);
@@ -4974,9 +5023,6 @@ static void IPMenu()
 		menu7[] = 
 		"14 - BootLoader IP Address (%d.%d.%d.%d) (%s)\n"
 		"15 - Ethernet Duplex (0=Half, 1=Full) (%d)\n",
-		menu8[] = 
-		"99 - Save Values to EEPROM\n"
-		"x  - Exit IP Parameters Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
 		entsel[] = "Enter Selection (1-14,99,c,x,q,r) : ";
 
 		bootok = ((AppConfig.BootIPCheck == GetBootCS()));
@@ -5011,7 +5057,16 @@ static void IPMenu()
 			AppConfig.BootIPAddr.v[3],(bootok) ? "OK" : "BAD",AppConfig.EthFullDuplex);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu8);
+		printf(str_save_eeprom);
+		printf("x  - ");
+		printf(str_exit_menu);
+		printf(" IP Parameters Menu (");
+		printf(str_back_main);
+		printf(")\nq  - ");
+		printf(str_disconnect);
+		printf(", r - ");
+		printf(str_reboot);
+		printf("\n\n");
 		fflush(stdout);
 		aborted = 0;
 
@@ -5271,9 +5326,6 @@ static void OffLineMenu()
 		"9  - Offline CTCSS Tone (%.1f) Hz\n"
 		"10 - Offline CTCSS Level (0-32767) (%d)\n"
 		"11 - Offline De-Emphasis Override (0=NORMAL, 1=OVERRIDE) (%d)\n",
-		menu2[] = 
-		"99 - Save Values to EEPROM\n"
-		"x  - Exit OffLine Mode Parameter Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
 		entsel[] = "Enter Selection (1-9,99,c,x,q,r) : ";
 
 		printf(menu,AppConfig.FailMode,AppConfig.CWSpeed,AppConfig.CWBeforeTime,AppConfig.CWAfterTime);
@@ -5284,7 +5336,16 @@ static void OffLineMenu()
 		printf(menu1a,(double)AppConfig.CTCSSTone,AppConfig.CTCSSLevel,AppConfig.OffLineNoDeemp);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu2);
+		printf(str_save_eeprom);
+		printf("x  - ");
+		printf(str_exit_menu);
+		printf(" OffLine Mode Parameter Menu (");
+		printf(str_back_main);
+		printf(")\nq  - ");
+		printf(str_disconnect);
+		printf(", r - ");
+		printf(str_reboot);
+		printf("\n\n");
 		fflush(stdout);
 		aborted = 0;
 
@@ -5471,15 +5532,21 @@ static void SquelchMenu()
 		"1  - Squelch Pot (0=Hardware, 1=Software) (%d)\n"
 		"2  - Squelch Setting (1-1023) (%d)\n"
 		"3  - Hysteresis (1-100) (%d)\n",
-		menu1[] = 
-		"99 - Save Values to EEPROM\n"
-		"x  - Exit Squelch Parameter Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
 		entsel[] = "Enter Selection (1-3,99,x,q,r) : ";
 
 		printf(menu,AppConfig.Sqpot,AppConfig.Squelch,AppConfig.Hysteresis);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu1);
+		printf(str_save_eeprom);
+		printf("x  - ");
+		printf(str_exit_menu);
+		printf(" Squelch Parameter Menu (");
+		printf(str_back_main);
+		printf(")\nq  - ");
+		printf(str_disconnect);
+		printf(", r - ");
+		printf(str_reboot);
+		printf("\n\n");
 		fflush(stdout);
 		aborted = 0;
 
@@ -5623,27 +5690,24 @@ int main(void)
 		"18 - \"Duplex Mode 3\" (0=DISABLED, 1-255 Hang Time) (1/10 secs) (%u)\n"
 		"19 - Simulcast Launch Delay (%u) (approx 200 ns, 5 = 1us, > 0 to ENA SC)\n"
 		"97 - RX Level,  "
-		"98 - Status,  "
-		"99 - Save Values to EEPROM\n"
-		"i - IP Parameters menu, o - Offline Mode Parameters menu, s - Squelch menu\n"
-		"q - Disconnect Remote Console Session, r - reboot system, d - diagnostics\n\n",
+		"98 - Status,  ",
 		entsel[] = "Enter Selection (1-19,81-82,97-99,i,o,s,r,q,d) : ";
 
 
 	static ROM char oprdata[] = "S/W Version: %s\n"
 		"System Uptime: %lu.%lu Secs\n"
-		"IP Address: %d.%d.%d.%d\n",
+		"IP Address: ",
 		oprdata1[] = 
-		"Netmask: %d.%d.%d.%d\n",
+		"Netmask: ",
 		oprdata2[] = 
-		"Gateway: %d.%d.%d.%d\n",
+		"Gateway: ",
 		oprdata3[] = 
-		"Primary DNS: %d.%d.%d.%d\n",
+		"Primary DNS: ",
 		oprdata4[] = 
-		"Secondary DNS: %d.%d.%d.%d\n",
+		"Secondary DNS: ",
 		oprdata5[] = 
 		"DHCP: %d\n"
-		"VOTER Server IP: %d.%d.%d.%d\n",
+		"VOTER Server IP: ",
 		oprdata6[] = 
 		"VOTER Server UDP Port: %d\n"
 		"OUR UDP Port: %d\n"
@@ -6010,6 +6074,13 @@ int main(void)
 		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,
 			AppConfig.Duplex3,AppConfig.LaunchDelay);
 #endif
+		printf(str_save_eeprom);
+		printf("i - IP Parameters menu, o - Offline Mode Parameters menu, s - Squelch menu\n");
+		printf("q - ");
+		printf(str_disconnect);
+		printf(", r - ");
+		printf(str_reboot);
+		printf(", d - diagnostics\n\n");
 		aborted = 0;
 
 		while(!aborted)
@@ -6311,23 +6382,29 @@ int main(void)
 
 			case 98:
 				t = system_time.vtime_sec;
-				printf(oprdata,VERSION,uptimer / 10,uptimer % 10,AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3]);
+				printf(oprdata,VERSION,uptimer / 10,uptimer % 10);
+				printf(fmt_ip_newline,AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3]);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata1,AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3]);
+				printf(oprdata1);
+				printf(fmt_ip_newline,AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3]);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata2,AppConfig.MyGateway.v[0],AppConfig.MyGateway.v[1],AppConfig.MyGateway.v[2],AppConfig.MyGateway.v[3]);
+				printf(oprdata2);
+				printf(fmt_ip_newline,AppConfig.MyGateway.v[0],AppConfig.MyGateway.v[1],AppConfig.MyGateway.v[2],AppConfig.MyGateway.v[3]);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata3,AppConfig.PrimaryDNSServer.v[0],AppConfig.PrimaryDNSServer.v[1],AppConfig.PrimaryDNSServer.v[2],AppConfig.PrimaryDNSServer.v[3]);
+				printf(oprdata3);
+				printf(fmt_ip_newline,AppConfig.PrimaryDNSServer.v[0],AppConfig.PrimaryDNSServer.v[1],AppConfig.PrimaryDNSServer.v[2],AppConfig.PrimaryDNSServer.v[3]);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata4,AppConfig.SecondaryDNSServer.v[0],AppConfig.SecondaryDNSServer.v[1],
+				printf(oprdata4);
+				printf(fmt_ip_newline,AppConfig.SecondaryDNSServer.v[0],AppConfig.SecondaryDNSServer.v[1],
 					AppConfig.SecondaryDNSServer.v[2],AppConfig.SecondaryDNSServer.v[3]);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata5,AppConfig.Flags.bIsDHCPReallyEnabled,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
+				printf(oprdata5,AppConfig.Flags.bIsDHCPReallyEnabled);
+				printf(fmt_ip_newline,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
 				main_processing_loop();
 				secondary_processing_loop();
 				printf(oprdata6,AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,ppsx,connected,lastcor);
