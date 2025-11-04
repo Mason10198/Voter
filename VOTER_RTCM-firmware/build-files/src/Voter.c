@@ -1927,7 +1927,7 @@ void IOExpInit(void)
 {
 	IOExp_Write(IOEXP_IOCON,0x20);
 	IOExp_Write(IOEXP_IODIRA,0xD0);
-	IODirB = 0xf3;
+	IODirB = 0x73;
 	IOExp_Write(IOEXP_IODIRB,IODirB);
 	IOExpOutA = 0xDF;
 	IOExp_Write(IOEXP_OLATA,IOExpOutA);
@@ -1966,6 +1966,17 @@ void SetPTT(BOOL val)
 	if (val) IOExpOutA |= 0x20;
 		
 	if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
+}
+
+static inline void SetConnStatus(BOOL val)
+{
+	BYTE oldout;
+	oldout = IOExpOutB;
+	IOExpOutB &= ~0x80;
+
+	if (val) IOExpOutB |= 0x80;
+		
+	if (IOExpOutB != oldout) IOExp_Write(IOEXP_OLATB,IOExpOutB);
 }
 
 void SetAudioSrc(void)
@@ -2436,6 +2447,7 @@ void process_gps(void)
 		if (USE_PPS)
 		{
 			connected = 0;
+			SetConnStatus(0);
 			txseqno = 0;
 			txseqno_ptt = 0;
 			resp_digest = 0;
@@ -2524,6 +2536,7 @@ void process_gps(void)
 			if (USE_PPS)
 			{
 				connected = 0;
+				SetConnStatus(0);
 				txseqno = 0;
 				txseqno_ptt = 0;
 				resp_digest = 0;
@@ -2677,6 +2690,7 @@ void process_gps(void)
 				if (USE_PPS)
 				{
 					connected = 0;
+					SetConnStatus(0);
 					txseqno = 0;
 					txseqno_ptt = 0;
 					resp_digest = 0;
@@ -3045,6 +3059,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			if (strcmp((char *)audio_packet.vph.challenge,their_challenge))
 			{
 				connected = 0;
+				SetConnStatus(0);
 				txseqno = 0;
 				txseqno_ptt = 0;
 				lastrxtimer = 0;
@@ -3070,6 +3085,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					}
 			
 						connected = 1;
+						SetConnStatus(1);
 						lastrxtimer = 0;
 				
 						if (n > sizeof(VOTER_PACKET_HEADER)) option_flags = audio_packet.rssi;
@@ -3080,6 +3096,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							if (n > sizeof(VOTER_PACKET_HEADER)) gotbadmix = 1; 
 
 							connected = 0;
+							SetConnStatus(0);
 							txseqno = 0;
 							txseqno_ptt = 0;
 							digest = 0;
@@ -3091,6 +3108,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					else
 					{
 						connected = 0;
+						SetConnStatus(0);
 						txseqno = 0;
 						txseqno_ptt = 0;
 						digest = 0;
@@ -3111,6 +3129,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				}
 
 					connected = 1;
+					SetConnStatus(1);
 					lastrxtimer = 0;
 
 					if (!wconnected) SetAudioSrc();
@@ -3287,6 +3306,7 @@ void main_processing_loop(void)
 	if(!MACIsLinked())
 	{
 		connected = 0;
+		SetConnStatus(0);
 		txseqno = 0;
 		txseqno_ptt = 0;
 		resp_digest = 0;
@@ -3421,6 +3441,7 @@ void main_processing_loop(void)
 			if (lastalthost == althost)
 			{
 				connected = 0;
+				SetConnStatus(0);
 				txseqno = 0;
 				txseqno_ptt = 0;
 				resp_digest = 0;
@@ -3438,6 +3459,7 @@ void main_processing_loop(void)
 		{
 			hosttimedout = 1;
 			connected = 0;
+			SetConnStatus(0);
 			txseqno = 0;
 			txseqno_ptt = 0;
 			resp_digest = 0;
@@ -3565,6 +3587,7 @@ void secondary_processing_loop(void)
 			if (USE_PPS)
 			{
 				connected = 0;
+				SetConnStatus(0);
 				resp_digest = 0;
 				digest = 0;
 				their_challenge[0] = 0;
@@ -3589,6 +3612,7 @@ void secondary_processing_loop(void)
 			printf(gpsmsg6);
 			gps_state = GPS_STATE_IDLE;
 			connected = 0;
+			SetConnStatus(0);
 			resp_digest = 0;
 			digest = 0;
 			their_challenge[0] = 0;
@@ -5017,6 +5041,7 @@ int main(void)
 	filled = 0;
 	time_filled = 0;
 	connected = 0;
+	SetConnStatus(0);
 	lastrxtimer = 0;
 	memclr((char *)audio_buf,FRAME_SIZE * 2);
 	gps_bufindex = 0;
