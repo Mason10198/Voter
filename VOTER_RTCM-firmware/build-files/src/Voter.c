@@ -107,9 +107,9 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "3.10 BEW 11/1/2025";
+	char	VERSION[] = "4.00 BEW 11/1/2025";
 #else
-	char	VERSION[] = "3.10 11/1/2025";
+	char	VERSION[] = "4.00 11/1/2025";
 #endif
 
 #define M_PI       3.14159265358979323846
