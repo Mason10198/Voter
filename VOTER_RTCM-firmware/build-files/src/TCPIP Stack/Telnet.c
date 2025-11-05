@@ -301,8 +301,8 @@ void TelnetTask(void)
 						break;
 				#endif
 
-				// Print new banner: VOTER #<serial> - Version <VERSION>
-				sprintf(outstr, "\r\n\nVOTER #%d - Version %s\r\n\n", AppConfig.SerialNumber, VERSION);
+				// Print new banner: VOTER #<serial> - Version <VERSION> + live console hint
+				sprintf(outstr, "\r\n\nVOTER #%d - Version %s\r\nLive console; press Enter to log in\r\n\n", AppConfig.SerialNumber, VERSION);
 			
 				// Make certain the socket can be written to
 				if(TCPIsPutReady(MySocket) < strlen(outstr))
