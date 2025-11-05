@@ -125,6 +125,109 @@ extern WORD termbuftimer;
 // VERSION string from main firmware
 extern char VERSION[];
 
+// Simple helpers for redaction
+static inline BOOL is_digit(BYTE c) { return (c >= '0') && (c <= '9'); }
+
+// Redact IPv4 dotted quads.
+// - If in the form " (IPv4)", remove the entire parenthesized block including the leading space
+// - If in the form "(IPv4)", remove the entire parenthesized block
+// - Otherwise, replace bare IPv4 tokens with "[redacted]"
+// Returns number of bytes written to out (<= cap).
+static WORD redact_ips(const BYTE* s, WORD len, BYTE* out, WORD cap)
+{
+	WORD i = 0, o = 0;
+	const BYTE repl[] = "[redacted]"; // length 10
+	while(i < len && o < cap)
+	{
+
+		// Case 1: " (IPv4)" — remove whole block (and the leading space)
+		if(s[i] == ' ' && (i + 1) < len && s[i+1] == '(')
+		{
+			WORD j = i + 2; // start after ' ('
+			BYTE parts;
+			WORD k = j;
+			for(parts = 0; parts < 4; parts++)
+			{
+				BYTE dcnt = 0;
+				if(k >= len || !is_digit(s[k])) { parts = 0xFF; break; }
+				while(k < len && is_digit(s[k]) && dcnt < 3) { k++; dcnt++; }
+				if(parts < 3)
+				{
+					if(k >= len || s[k] != '.') { parts = 0xFF; break; }
+					k++; // consume '.'
+				}
+			}
+			if(parts == 4 && k < len && s[k] == ')')
+			{
+				// Drop from space before '(' through ')'
+				i = k + 1;
+				continue;
+			}
+		}
+
+		// Case 2: "(IPv4)" — remove whole parenthesized block
+		if(s[i] == '(')
+		{
+			WORD j = i + 1; // start after '('
+			BYTE parts;
+			WORD k = j;
+			for(parts = 0; parts < 4; parts++)
+			{
+				BYTE dcnt = 0;
+				if(k >= len || !is_digit(s[k])) { parts = 0xFF; break; }
+				while(k < len && is_digit(s[k]) && dcnt < 3) { k++; dcnt++; }
+				if(parts < 3)
+				{
+					if(k >= len || s[k] != '.') { parts = 0xFF; break; }
+					k++; // consume '.'
+				}
+			}
+			if(parts == 4 && k < len && s[k] == ')')
+			{
+				// Drop from '(' through ')'
+				i = k + 1;
+				continue;
+			}
+		}
+
+		// Case 3: Bare IPv4 — replace with [redacted]
+		if(is_digit(s[i]))
+		{
+			// Try to match d{1,3}\.(d{1,3}\.){2}d{1,3}
+			BYTE parts = 0;
+			WORD j = i;
+			for(parts = 0; parts < 4; parts++)
+			{
+				BYTE dcnt = 0;
+				if(j >= len || !is_digit(s[j])) { parts = 0xFF; break; }
+				while(j < len && is_digit(s[j]) && dcnt < 3) { j++; dcnt++; }
+				// For first 3 parts, require a dot
+				if(parts < 3)
+				{
+					if(j >= len || s[j] != '.') { parts = 0xFF; break; }
+					j++; // consume '.'
+				}
+			}
+			if(parts == 4)
+			{
+				// Matched an IPv4-like pattern; ensure token boundary (next char not digit)
+				if(j >= len || !is_digit(s[j]))
+				{
+					// Replace with [redacted]
+					BYTE k;
+					for(k = 0; k < sizeof(repl)-1 && o < cap; k++)
+						out[o++] = repl[k];
+					i = j;
+					continue;
+				}
+			}
+		}
+		// No match; copy one byte
+		out[o++] = s[i++];
+	}
+	return o;
+}
+
 void TelnetTask(void)
 {
 	BYTE		vTelnetSession;
@@ -345,13 +448,27 @@ BOOL PutTelnetConsole(char c)
 		termbuftimer = 0;
 		return 1;
 	}
-	if (TCPIsPutReady(MySocket) < termbufidx) 
+	// Determine output length (may be redacted pre-auth)
+	BYTE tmpbuf[MAXTERMBUF + 8];
+	WORD outlen = termbufidx;
+	BOOL preauth = (vTelnetStates[0] != SM_AUTHENTICATED);
+	if(preauth)
+		outlen = redact_ips(termbuf, termbufidx, tmpbuf, sizeof(tmpbuf));
+
+	if (TCPIsPutReady(MySocket) < outlen) 
 	{
 		StackTask();
 		StackApplications();
 		return 0;
 	}
-	for(i = 0; i < termbufidx; i++) TCPPut(MySocket,termbuf[i]);
+	if(preauth)
+	{
+		for(i = 0; i < outlen; i++) TCPPut(MySocket, tmpbuf[i]);
+	}
+	else
+	{
+		for(i = 0; i < termbufidx; i++) TCPPut(MySocket,termbuf[i]);
+	}
 	TCPFlush(MySocket);
 	termbufidx = 0;
 	termbuftimer = 0;
@@ -369,13 +486,27 @@ WORD i;
 	if (!TCPIsConnected(MySocket)) return;
 
 	if (termbufidx < 1) return;
-	if (TCPIsPutReady(MySocket) < termbufidx) 
+	// Determine output length (may be redacted pre-auth)
+	BYTE tmpbuf[MAXTERMBUF + 8];
+	WORD outlen = termbufidx;
+	BOOL preauth = (vTelnetStates[0] != SM_AUTHENTICATED);
+	if(preauth)
+		outlen = redact_ips(termbuf, termbufidx, tmpbuf, sizeof(tmpbuf));
+
+	if (TCPIsPutReady(MySocket) < outlen) 
 	{
 		StackTask();
 		StackApplications();
 		return;
 	}
-	for(i = 0; i < termbufidx; i++) TCPPut(MySocket,termbuf[i]);
+	if(preauth)
+	{
+		for(i = 0; i < outlen; i++) TCPPut(MySocket, tmpbuf[i]);
+	}
+	else
+	{
+		for(i = 0; i < termbufidx; i++) TCPPut(MySocket,termbuf[i]);
+	}
 	termbufidx = 0;
 	termbuftimer = 0;
 	TCPFlush(MySocket);
