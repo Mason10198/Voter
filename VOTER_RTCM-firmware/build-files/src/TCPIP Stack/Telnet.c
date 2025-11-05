@@ -77,15 +77,12 @@
 
 #define	MAXTERMBUF 100  // Make sure this is <= Telnet TX FIFO size!!
 
-// Demo title string
-static ROM BYTE strTitle[]			= "\r\n\nVOTER System Serial # ",
-	strTitle1[] = " Remote Console Access\r\n\nLogin: ";
-// Demo password
-static ROM BYTE strPassword[]		= "Password: \xff\xfd\x2d";	// DO Suppress Local Echo (stop telnet client from printing typed characters)
-// Access denied message
-static ROM BYTE strAccessDenied[]	= "\r\nAccess denied\r\n\r\n";
-// Successful authentication message
-static ROM BYTE strAuthenticated[]	= "\r\n\xff\xfe\x22Logged in successfully, now joining console session...\r\n\r\n";
+// Login/auth strings
+static ROM BYTE strUsername[]       = "Username: ";
+// DO Suppress Local Echo (stop telnet client from printing typed characters)
+static ROM BYTE strPassword[]       = "Password: \xff\xfd\x2d";
+static ROM BYTE strAccessDenied[]   = "\r\nAccess denied\r\n\r\n";
+static ROM BYTE strAuthenticated[]  = "\r\nLogged in successfully...\r\n\r\n";
 
 									  
 extern BYTE AN0String[8];
@@ -111,11 +108,12 @@ extern BYTE AN0String[8];
 enum
 {
 	SM_HOME = 0,
-	SM_PRINT_LOGIN,
-	SM_GET_LOGIN,
-	SM_GET_PASSWORD,
+	SM_PRINT_BANNER,     // Print initial banner and enter streaming mode
+	SM_STREAM,           // Stream console without authentication
+	SM_GET_LOGIN,        // Prompted for username
+	SM_GET_PASSWORD,     // Prompted for password
 	SM_GET_PASSWORD_BAD_LOGIN,
-	SM_AUTHENTICATED
+	SM_AUTHENTICATED     // Logged in; menu input allowed
 } TelnetState;
 static TCP_SOCKET hTelnetSockets[MAX_TELNET_CONNECTIONS];
 static BYTE vTelnetStates[MAX_TELNET_CONNECTIONS];
@@ -124,13 +122,15 @@ static BOOL bInitialized = FALSE;
 static BYTE termbuf[MAXTERMBUF];
 extern WORD termbufidx;
 extern WORD termbuftimer;
+// VERSION string from main firmware
+extern char VERSION[];
 
 void TelnetTask(void)
 {
 	BYTE		vTelnetSession;
 	WORD		w, w2;
 	TCP_SOCKET	MySocket;
-	char outstr[60];
+	char outstr[96];
 
 
 	// Perform one time initialization on power up
@@ -155,7 +155,7 @@ void TelnetTask(void)
 		if(MySocket != INVALID_SOCKET)
 		{
 			if(TCPWasReset(MySocket))
-				TelnetState = SM_PRINT_LOGIN;
+				TelnetState = SM_PRINT_BANNER;
 		}
 
 		// Handle session state
@@ -175,10 +175,10 @@ void TelnetTask(void)
 					TCPAddSSLListener(MySocket, TELNETS_PORT);
 				#endif
 	
-				TelnetState++;
+				TelnetState = SM_PRINT_BANNER;
 				break;
-	
-			case SM_PRINT_LOGIN:
+
+			case SM_PRINT_BANNER:
 				#if defined(STACK_USE_SSL_SERVER)
 					// Reject unsecured connections if TELNET_REJECT_UNSECURED is defined
 					#if defined(TELNET_REJECT_UNSECURED)
@@ -198,7 +198,8 @@ void TelnetTask(void)
 						break;
 				#endif
 
-				sprintf(outstr,"%s%d%s",(char *)strTitle,AppConfig.SerialNumber,(char *)strTitle1);
+				// Print new banner: VOTER #<serial> - Version <VERSION>
+				sprintf(outstr, "\r\n\nVOTER #%d - Version %s\r\n\n", AppConfig.SerialNumber, VERSION);
 			
 				// Make certain the socket can be written to
 				if(TCPIsPutReady(MySocket) < strlen(outstr))
@@ -209,13 +210,27 @@ void TelnetTask(void)
 	
 				// Send the packet
 				TCPFlush(MySocket);
-				TelnetState++;
+				TelnetState = SM_STREAM;
 	
+			case SM_STREAM:
+				// In streaming mode, only prompt for login when user presses Enter
+				w = TCPFind(MySocket, '\n', 0, FALSE);
+				if(w == 0xFFFFu)
+					break;
+				// Consume the line (including CR/LF)
+				TCPGetArray(MySocket, NULL, w + 1);
+				// Prompt for username now
+				if(TCPIsPutReady(MySocket) < strlenpgm((ROM char*)strUsername))
+					break;
+				TCPPutROMString(MySocket, strUsername);
+				TCPFlush(MySocket);
+				TelnetState = SM_GET_LOGIN;
+				break;
+
 			case SM_GET_LOGIN:
 				// Make sure we can put the password prompt
 				if(TCPIsPutReady(MySocket) < strlenpgm((ROM char*)strPassword))
 					break;
-	
 				// See if the user pressed return
 				w = TCPFind(MySocket, '\n', 0, FALSE);
 				if(w == 0xFFFFu)
@@ -223,12 +238,11 @@ void TelnetTask(void)
 					if(TCPGetRxFIFOFree(MySocket) == 0u)
 					{
 						TCPPutROMString(MySocket, (ROM BYTE*)"\r\nToo much data.\r\n");
-						TCPDisconnect(MySocket);
+						// Return to streaming instead of disconnecting
+						TelnetState = SM_STREAM;
 					}
-	
 					break;
 				}
-			
 				// Search for the username -- case insensitive
 				w2 = TCPFindArray(MySocket, TELNET_USERNAME, strlen((char*)TELNET_USERNAME), 0, TRUE);
 				if((w2 < 0) || !((w2 == ((w - strlen((char *)TELNET_USERNAME)) - 1)) || (w2 == (w - strlen((char *)TELNET_USERNAME)))))
@@ -240,10 +254,8 @@ void TelnetTask(void)
 				{
 					TelnetState = SM_GET_PASSWORD;
 				}
-	
-				// Username verified, throw this line of data away
+				// Username verified (or not), throw this line of data away
 				TCPGetArray(MySocket, NULL, w + 1);
-	
 				// Print the password prompt
 				TCPPutROMString(MySocket, strPassword);
 				TCPFlush(MySocket);
@@ -273,10 +285,10 @@ void TelnetTask(void)
 				if((w2 != 3u) || !(((strlen((char *)TELNET_PASSWORD) == w-4)) || ((strlen((char *)TELNET_PASSWORD) == w-3)))
 					|| (TelnetState == SM_GET_PASSWORD_BAD_LOGIN))
 				{
-					// Did not find the password
-					TelnetState = SM_PRINT_LOGIN;	
+					// Did not find the password - do not disconnect, return to streaming
+					TelnetState = SM_STREAM;	
 					TCPPutROMString(MySocket, strAccessDenied);
-					TCPDisconnect(MySocket);
+					TCPFlush(MySocket);
 					break;
 				}
 	
@@ -323,7 +335,9 @@ BOOL PutTelnetConsole(char c)
 	WORD i;
 
 	MySocket = hTelnetSockets[0];
-	if (vTelnetStates[0] != SM_AUTHENTICATED) return 1;
+	// Allow output in all states, but only when connected
+	if (MySocket == INVALID_SOCKET) return 1;
+	if (!TCPIsConnected(MySocket)) return 1;
 
 	if (termbufidx < MAXTERMBUF)
 	{
@@ -350,7 +364,9 @@ TCP_SOCKET	MySocket;
 WORD i;
 
 	MySocket = hTelnetSockets[0];
-	if (vTelnetStates[0] != SM_AUTHENTICATED) return;
+	// Allow output in all states, but only when connected
+	if (MySocket == INVALID_SOCKET) return;
+	if (!TCPIsConnected(MySocket)) return;
 
 	if (termbufidx < 1) return;
 	if (TCPIsPutReady(MySocket) < termbufidx) 
@@ -424,9 +440,10 @@ void CloseTelnetConsole(void)
 	{
 		// Load up static state information for this session
 		MySocket = hTelnetSockets[vTelnetSession];
-		if (vTelnetStates[vTelnetSession] != SM_AUTHENTICATED) continue;
+		if (MySocket == INVALID_SOCKET) continue;
+		// Only authenticated sessions can invoke CloseTelnetConsole(), but be safe
 		TCPDisconnect(MySocket);
-		TelnetState = SM_PRINT_LOGIN;
+		TelnetState = SM_PRINT_BANNER;
 		vTelnetStates[vTelnetSession] = TelnetState;
 	}
 }
