@@ -283,37 +283,39 @@ ROM char fmt_ip[] = "%d.%d.%d.%d";
 ROM char fmt_ip_newline[] = "%d.%d.%d.%d\n";
 
 // Common menu fragments
-ROM char str_save_eeprom[] = "99 - Save Values to EEPROM\n";
-ROM char str_enter_selection[] = "Enter Selection";
+ROM char str_save_eeprom[] = "99 - Save values to EEPROM\n";
+ROM char str_enter_selection[] = "Enter selection";
 ROM char str_exit_menu[] = "Exit";
-ROM char str_disconnect[] = "Disconnect Remote Console Session";
-ROM char str_reboot[] = "reboot system";
-ROM char str_back_main[] = "back to main menu";
+ROM char str_disconnect[] = "Disconnect remote console session";
+ROM char str_reboot[] = "Reboot system";
+ROM char str_back_main[] = "Back to main menu";
 
 // Common error/status messages
-ROM char err_invalid_prefix[] = "Invalid Entry, ";
-ROM char err_noentry_prefix[] = "No Entry Made, ";
-ROM char err_not_changed[] = "Value Not Changed\n";
-ROM char msg_changed_success[] = "Value Changed Successfully\n";
-ROM char msg_error_prefix[] = "  ERROR! ";
+ROM char err_invalid_prefix[] = "Invalid entry: ";
+ROM char err_noentry_prefix[] = "No entry: ";
+ROM char err_not_changed[] = "Value not changed\n";
+ROM char msg_changed_success[] = "Value changed successfully\n";
+ROM char msg_error_prefix[] = "ERROR: ";
 
 // Original strings (some now use consolidated strings)
-ROM char 	gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", 
-		gpsmsg2[] = "GPS signal acquired, number of satellites in view = ",
-		gpsmsg3[] = "  Time now syncronized to GPS\n", 
-		gpsmsg5[] = "  Lost GPS Time synchronization\n",
-		gpsmsg6[] = "  GPS signal lost entirely. Starting again...\n",
-		gpsmsg7[] = "  Warning: GPS Data time period elapsed\n",
-		gpsmsg8[] = "  Warning: GPS PPS Signal time period elapsed\n",
+
+
+ROM char gpsmsg1[] = "GPS receiver active; waiting for acquisition\n",
+		gpsmsg2[] = "GPS signal acquired, satellites in view: ",
+		gpsmsg3[] = "Time synchronized to GPS\n",
+		gpsmsg5[] = "Lost GPS time synchronization\n",
+		gpsmsg6[] = "GPS signal lost; restarting\n",
+		gpsmsg7[] = "Warning: GPS data time period elapsed\n",
+		gpsmsg8[] = "Warning: GPS PPS time period elapsed\n",
 		gpsmsg9[] = "GPS signal acquired\n",
-		entnewval[] = "Enter New Value : ", 
-		newvalchanged[] = "Value Changed Successfully\n",
-		saved[] = "Configuration Settings Written to EEPROM\n";
+		entnewval[] = "Enter new value: ", 
+		newvalchanged[] = "Value changed successfully\n",
+		saved[] = "Configuration saved to EEPROM\n";
  
-char 		newvalerror[] = "Invalid Entry, Value Not Changed\n", 
-		newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
-		badmix[] = "  ERROR! Host rejecting connection\n",
-		hosttmomsg[] = "  ERROR! Host response timeout\n";
+char 		newvalerror[] = "Invalid entry: value not changed\n", 
+ 		newvalnotchanged[] = "No entry: value not changed\n",
+ 	badmix[] = "ERROR: host rejecting connection\n",
+ 	hosttmomsg[] = "ERROR: host response timeout\n";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -820,7 +822,7 @@ static ROM struct morse_bits mbits[] = {
 };
 
 static ROM char rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n",
-		invalselection[] = "Invalid Selection\n", paktc[] = "\nPress The Any Key (Enter) To Continue\n",
+		invalselection[] = "Invalid selection\n", paktc[] = "\nPress any key (Enter) to continue\n",
 		booting[] = "System Re-Booting...\n";
 
 char dummy_loc;
@@ -2359,7 +2361,8 @@ static char *logtime_p(VTIME *p)
 	time_t	t;
 	static char str[50];
 	static ROM char notime[] = "<System Time Not Set>",
-	logtemplate[] = "%m/%d/%Y %H:%M:%S";
+	/* Use ISO-like ordering: YYYY/MM/DD for compact, sortable timestamps */
+	logtemplate[] = "%Y/%m/%d %H:%M:%S";
 
 	t = p->vtime_sec;
 	
@@ -2368,6 +2371,14 @@ static char *logtime_p(VTIME *p)
 	strftime(str,sizeof(str) - 1,(char *)logtemplate,gmtime(&t));
 	sprintf(str + strlen(str),".%03lu",p->vtime_nsec / 1000000L);
 	return(str);
+}
+
+// Lightweight timestamp prefixer for consistent console logs with minimal ROM cost
+static ROM char log_prefix_fmt[] = "[%s] ";
+static inline void log_prefix(void)
+{
+	// Prints: "[mm/dd/yyyy hh:mm:ss.mmm] " using existing logtime()
+	printf(log_prefix_fmt, logtime());
 }
 
 
@@ -2433,7 +2444,7 @@ void process_gps(void)
 	if ((gpssync || (!USE_PPS)) && (gps_state == GPS_STATE_VALID))
 	{
 		gps_state = GPS_STATE_SYNCED;
-		printf(logtime());
+		log_prefix();
 		printf(gpsmsg3);
 		main_processing_loop();
 	}
@@ -2441,7 +2452,7 @@ void process_gps(void)
 	if ((!gpssync) && USE_PPS && (gps_state == GPS_STATE_SYNCED))
 	{
 		gps_state = GPS_STATE_VALID;
-		printf(logtime());
+		log_prefix();
 		printf(gpsmsg5);
 
 		if (USE_PPS)
@@ -2464,9 +2475,9 @@ void process_gps(void)
 
 		if ((AppConfig.DebugLevel & 32) && strstr((char *)gps_buf,gprmc))
 		{
-			printf("GPS-DEBUG: %s\n",gps_buf);
+			if (AppConfig.DebugLevel & 32) { log_prefix(); printf("GPS-DEBUG: %s\n",gps_buf); }
 
-			if ((ppsx) && (AppConfig.PPSPolarity <= 1)) printf("GPS-DEBUG: PPS Configured but no pulse found, check polarity?\n");
+			if ((ppsx) && (AppConfig.PPSPolarity <= 1)) { if (AppConfig.DebugLevel & 32) { log_prefix(); printf("GPS-DEBUG: PPS Configured but no pulse found, check polarity?\n"); } }
 		}
 
 		n = explode_string((char *)gps_buf,strs,30,',','\"');
@@ -2503,7 +2514,7 @@ void process_gps(void)
 				gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) AppConfig.GPSOffset;
 
 	if (AppConfig.DebugLevel & 32)
-		printf("GPS-DEBUG: mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
+		if (AppConfig.DebugLevel & 32) log_prefix(), printf("GPS-DEBUG: mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
 
 		  if (!USE_PPS) system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			return;
@@ -2521,7 +2532,7 @@ void process_gps(void)
 			gps_state = GPS_STATE_RECEIVED;
 			gpstimer = 0;
 			gpswarn = 0;
-			printf(gpsmsg1);
+			log_prefix(); printf(gpsmsg1);
 		}
 		n = atoi(strs[6]);
 
@@ -2530,7 +2541,7 @@ void process_gps(void)
 			if (gps_state == GPS_STATE_RECEIVED) return;
 
 			gps_state = GPS_STATE_IDLE;
-			printf(logtime());
+			log_prefix();
 			printf(gpsmsg6);
 
 			if (USE_PPS)
@@ -2552,7 +2563,7 @@ void process_gps(void)
 		{
 			gps_state = GPS_STATE_VALID;
 	
-			printf(gpsmsg2);
+			log_prefix(); printf(gpsmsg2);
 			printf("%d\n",gps_nsat);
 		}
 	
@@ -2635,8 +2646,8 @@ void process_gps(void)
 			
 			if (AppConfig.DebugLevel & 32)
 			{
-			 	printf("GPS-DEBUG: gps_epoch_time: %ld, ctime: %s, gps_week: %d\n",gps_time,ctime((time_t *)&gps_time),gpsweek);
-				if ((ppsx) && (AppConfig.PPSPolarity <= 1)) printf("GPS-DEBUG: PPS Configured but no pulse found, check polarity?\n");
+			 	if (AppConfig.DebugLevel & 32) log_prefix(), printf("GPS-DEBUG: gps_epoch_time: %ld, ctime: %s, gps_week: %d\n",gps_time,ctime((time_t *)&gps_time),gpsweek);
+				if ((ppsx) && (AppConfig.PPSPolarity <= 1)) { if (AppConfig.DebugLevel & 32) { log_prefix(); printf("GPS-DEBUG: PPS Configured but no pulse found, check polarity?\n"); } }
 			}
 
 			if (!USE_PPS) system_time.vtime_sec = timing_time = gps_time + 1;
@@ -2664,8 +2675,10 @@ void process_gps(void)
 
 			if (AppConfig.DebugLevel & 32)
 			{
-				printf("GPS-DEBUG: TSIP: ok %d, 2,3,9 - 14: %02x %02x %02x %02x %02x %02x %02x %02x\n",
-					happy,gps_buf[2],gps_buf[3],gps_buf[9],gps_buf[10],gps_buf[11],gps_buf[12],gps_buf[13],gps_buf[14]);
+				if (AppConfig.DebugLevel & 32) {
+					log_prefix(); printf("GPS-DEBUG: TSIP: ok %d, 2,3,9 - 14: %02x %02x %02x %02x %02x %02x %02x %02x\n",
+						happy,gps_buf[2],gps_buf[3],gps_buf[9],gps_buf[10],gps_buf[11],gps_buf[12],gps_buf[13],gps_buf[14]);
+				}
 			}
 
 			gpswarn = 0;
@@ -2676,7 +2689,7 @@ void process_gps(void)
 				gps_state = GPS_STATE_RECEIVED;
 				gpstimer = 0;
 				gpswarn = 0;
-				printf(gpsmsg1);
+				log_prefix(); printf(gpsmsg1);
 			}
 
 			if (!happy)
@@ -2684,7 +2697,7 @@ void process_gps(void)
 				if (gps_state == GPS_STATE_RECEIVED) return;
 
 				gps_state = GPS_STATE_IDLE;
-				printf(logtime());
+				log_prefix();
 				printf(gpsmsg6);
 
 				if (USE_PPS)
@@ -2709,7 +2722,7 @@ void process_gps(void)
 			if ((gps_state == GPS_STATE_RECEIVED) && (gps_nsat > 0) && gps_time)
 			{
 				gps_state = GPS_STATE_VALID;
-				printf(gpsmsg9);
+				log_prefix(); printf(gpsmsg9);
 
 			}
 
@@ -3526,25 +3539,25 @@ void main_processing_loop(void)
 void secondary_processing_loop(void)
 {
 
-	static ROM char  	cfgwritten[] = "Squelch calibration saved, noise gain = ",
-				diodewritten[] = "Diode calibration saved, value (hex) = ",
-				dnschanged[] = "  Voter Host DNS Resolved to ",
-				dnsfailed[] = "  Warning: Unable to resolve DNS for Voter Host %s\n",
-				altdnschanged[] = "  Alternate Voter Host DNS Resolved to ",
-				altdnsfailed[] = "  Warning: Unable to resolve DNS for Alternate Voter Host %s\n",
-				altdnshost[] = "  Using Alternate Voter Host (",
-				dnshost[] = "  Using Primary Voter Host (",
-				dnsusing[] = "  Connection Using Voter Host (",
-				miss_str[] = "  Inbound (Eth Rx) packet out of bounds by: %ld\n",
-				gothost[] = "  Host Connection established (%s) (",
-				losthost[] = "  Host Connection Lost (%s) (";
+	static ROM char   cfgwritten[] = "Squelch calibration saved; noise gain = ",
+				diodewritten[] = "Diode calibration saved; value (hex) = ",
+				dnschanged[] = "Voter host DNS resolved to ",
+				dnsfailed[] = "Warning: unable to resolve DNS for voter host %s\n",
+				altdnschanged[] = "Alternate host DNS resolved to ",
+				altdnsfailed[] = "Warning: unable to resolve DNS for alternate host %s\n",
+				altdnshost[] = "Using alternate host (",
+				dnshost[] = "Using primary host (",
+				dnsusing[] = "Connection using host (",
+				miss_str[] = "Inbound packet out of bounds by %ld\n",
+				gothost[] = "Host connection established (%s) (",
+				losthost[] = "Host connection lost (%s) (";
 	
-	static ROM char 	ipinfo[] = "\nIP Configuration Info: \n",
-				ipwithdhcp[] = "Configured With DHCP\n",
-				ipwithstatic[] = "Static IP Configuration\n", 
-				ipipaddr[] = "IP Address: ",
-				ipsubnet[] = "Subnet Mask: ",
-				ipgateway[] = "Gateway Addr: ";
+	static ROM char 	ipinfo[] = "\nIP configuration:\n",
+				ipwithdhcp[] = "Configured with DHCP\n",
+				ipwithstatic[] = "Static IP configuration\n", 
+				ipipaddr[] = "IP address: ",
+				ipsubnet[] = "Subnet mask: ",
+				ipgateway[] = "Gateway: ";
 
 	static DWORD t = 0, t1 = 0, t2 = 0, tdisp = 0;
 
@@ -3575,12 +3588,12 @@ void secondary_processing_loop(void)
 			if ((!gpswarn) && (gpstimer > ((AppConfig.GPSProto == GPS_TSIP) ? GPS_TSIP_WARN_TIME : GPS_NMEA_WARN_TIME)))
 			{
 				gpswarn = 1;
-			printf(logtime());
+			log_prefix();
 			printf(gpsmsg7);
 		}
 		if (gpstimer >((AppConfig.GPSProto == GPS_TSIP) ? GPS_TSIP_MAX_TIME : GPS_NMEA_MAX_TIME))
 		{
-			printf(logtime());
+			log_prefix();
 			printf(gpsmsg6);
 			gps_state = GPS_STATE_IDLE;
 
@@ -3603,12 +3616,12 @@ void secondary_processing_loop(void)
 			if ((!ppswarn) && (ppstimer > PPS_WARN_TIME))
 			{
 				ppswarn = 1;
-		printf(logtime());
+		log_prefix();
 		printf(gpsmsg8);
 	}
 		if (ppstimer > PPS_MAX_TIME)
 		{
-			printf(logtime());
+			log_prefix();
 			printf(gpsmsg6);
 			gps_state = GPS_STATE_IDLE;
 			connected = 0;
@@ -3694,11 +3707,13 @@ void secondary_processing_loop(void)
 				AppConfig.SqlNoiseGain = noise_gain;
 				if (!WVF) AppConfig.SqlDiode = caldiode;
 				SaveAppConfig();
+				log_prefix();
 				printf(cfgwritten);
 				printf("%d\n",noise_gain);
 
 				if (!WVF)
 				{
+					log_prefix();
 					printf(diodewritten);
 					printf("%d\n",caldiode);
 				}
@@ -3933,27 +3948,27 @@ void secondary_processing_loop(void)
 
 	if (gotbadmix)
 	{
-		printf(logtime());
+		log_prefix();
 		printf(badmix);
 		gotbadmix = 0;
 	}
 
 	if (hosttimedout)
 	{
-		printf(logtime());
+		log_prefix();
 		printf(hosttmomsg);
 		hosttimedout = 0;
 	}
 
 	if (dnsnotify == 1)
 	{
-		printf(logtime());
+		log_prefix();
 		printf(dnschanged);
 		printf(fmt_ip_newline,MyVoterAddr.v[0],MyVoterAddr.v[1],MyVoterAddr.v[2],MyVoterAddr.v[3]);
 	}
 	else if (dnsnotify == 2) 
 	{
-		printf(logtime());
+		log_prefix();
 		printf(dnsfailed,AppConfig.VoterServerFQDN);
 	}
 
@@ -3961,20 +3976,20 @@ void secondary_processing_loop(void)
 
 	if (altdnsnotify == 1)
 	{
-		printf(logtime());
+		log_prefix();
 		printf(altdnschanged);
 		printf(fmt_ip_newline,MyAltVoterAddr.v[0],MyAltVoterAddr.v[1],MyAltVoterAddr.v[2],MyAltVoterAddr.v[3]);
 	}
 	else if (altdnsnotify == 2) 
 	{
-		printf(logtime());
+		log_prefix();
 		printf(altdnsfailed,AppConfig.AltVoterServerFQDN);
 	}
 
 	altdnsnotify = 0;
 	if (missed && (!misstimer))
 	{
-		printf(logtime());
+		log_prefix();
 		printf(miss_str,-missed);
 		misstimer = MISS_REPORT_TIME;
 		missed = 0;
@@ -3982,7 +3997,7 @@ void secondary_processing_loop(void)
 
 	if ((!connected) && connrep)
 		{
-			printf(logtime());
+			log_prefix();
 			printf(losthost,(althost) ? "Alt" : "Pri");
 			printf(fmt_ip,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
 			printf(")\n");
@@ -3990,7 +4005,7 @@ void secondary_processing_loop(void)
 		}
 		else if (connected && (!connrep))
 		{
-			printf(logtime());
+			log_prefix();
 			printf(gothost,(althost) ? "Alt" : "Pri");
 			printf(fmt_ip,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
 			printf(")\n");
@@ -4048,7 +4063,7 @@ void secondary_processing_loop(void)
 	if(dwLastIP != AppConfig.MyIPAddr.Val)
 	{
 		dwLastIP = AppConfig.MyIPAddr.Val;
-		printf(ipinfo);
+		log_prefix(); printf(ipinfo);
 
 		if (AppConfig.Flags.bIsDHCPReallyEnabled)
 			printf(ipwithdhcp);
@@ -4071,7 +4086,7 @@ void secondary_processing_loop(void)
 	{
 		if (altchange)
 		{
-			printf(logtime());
+			log_prefix();
 			if (althost)
 			{
 				printf(altdnshost);
@@ -4088,7 +4103,7 @@ void secondary_processing_loop(void)
 
 		if (altchange1)
 		{
-			printf(logtime());
+			log_prefix();
 			printf(dnsusing);
 			printf(fmt_ip,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
 			printf(")\n");
@@ -4400,7 +4415,7 @@ static void IPMenu()
 		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r'))
 		{
 			CloseTelnetConsole();
-			printf(booting);
+			log_prefix(); printf(booting);
 			RTCM_Reset();
 		}
 
@@ -4596,7 +4611,7 @@ static void IPMenu()
 
 			case 99:
 				SaveAppConfig();
-				printf(saved);
+				log_prefix(); printf(saved);
 				continue;
 
 			default:
@@ -4679,7 +4694,7 @@ static void OffLineMenu()
 		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r'))
 		{
 			CloseTelnetConsole();
-			printf(booting);
+			log_prefix(); printf(booting);
 			RTCM_Reset();
 		}
 
@@ -4880,7 +4895,7 @@ static void SquelchMenu()
 		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r'))
 		{
 			CloseTelnetConsole();
-			printf(booting);
+			log_prefix(); printf(booting);
 			RTCM_Reset();
 		}
 
@@ -5003,35 +5018,35 @@ int main(void)
 		entsel[] = "Enter Selection (1-19,81-82,97-99,i,o,s,r,q) : ";
 
 
-	static ROM char oprdata[] = "S/W Version: %s\n"
+	static ROM char oprdata[] = "S/W version: %s\n"
 		"System Uptime: %lu.%lu Secs\n"
 		"IP Address: ",
-		oprdata1[] = 
-		"Netmask: ",
-		oprdata2[] = 
-		"Gateway: ",
-		oprdata3[] = 
-		"Primary DNS: ",
-		oprdata4[] = 
-		"Secondary DNS: ",
-		oprdata5[] = 
-		"DHCP: %d\n"
-		"VOTER Server IP: ",
-		oprdata6[] = 
-		"VOTER Server UDP Port: %d\n"
-		"OUR UDP Port: %d\n"
-		"GPS Lock: %d\n"
-		"PPS BAD or Wrong Polarity: %d\n"
-		"Connected: %d\n"
-		"COR: %d\n",
-		oprdata7[] = 
-		"EXT CTCSS IN: %d\n"
-		"PTT: %d\n"
-		"RSSI: %d\n"
-		"Current Samples / Sec.: %d\n"
-		"Current Peak Audio Level: %u\n",
-		oprdata8[] = 
-		"Squelch Noise Gain Value: %d, Diode Cal. Value: %d, SQL Level %d, Hysteresis %d\n",
+	oprdata1[] = 
+	"Netmask: ",
+	oprdata2[] = 
+	"Gateway: ",
+	oprdata3[] = 
+	"Primary DNS: ",
+	oprdata4[] = 
+	"Secondary DNS: ",
+	oprdata5[] = 
+	"DHCP: %d\n"
+	"VOTER server IP: ",
+	oprdata6[] = 
+	"VOTER server UDP port: %d\n"
+	"Our UDP port: %d\n"
+	"GPS lock: %d\n"
+	"PPS bad or wrong polarity: %d\n"
+	"Connected: %d\n"
+	"COR: %d\n",
+	oprdata7[] = 
+	"Ext CTCSS in: %d\n"
+	"PTT: %d\n"
+	"RSSI: %d\n"
+	"Current samples/sec: %d\n"
+	"Current peak audio level: %u\n",
+	oprdata8[] = 
+	"Squelch noise gain: %d, diode cal: %d, SQL level: %d, hysteresis: %d\n",
 		curtimeis[] = "Current Time: %s.%03lu\n";
 
 
@@ -5247,14 +5262,14 @@ int main(void)
 					SPIFlashWrite(0xFF);
 					#endif
 	
-					printf(defwritten);
+					log_prefix(); printf(defwritten);
 	
 					if (!INITIALIZE_WVF) 
 					{
 						InitAppConfig();
 						AppConfig.SqlDiode = adcothers[ADCDIODE];
 						SaveAppConfig();
-						printf(defdiode);
+						log_prefix(); printf(defdiode);
 					}
 
 					SetLED(SYSLED,0);
@@ -5310,7 +5325,7 @@ int main(void)
 
 	SetCTCSSTone(AppConfig.CTCSSTone,AppConfig.CTCSSLevel);
 
-	printf(signon,VERSION);
+	log_prefix(); printf(signon,VERSION);
 
 	if (sizeof(AppConfig) != 1016)
 	{	
@@ -5396,7 +5411,7 @@ int main(void)
 		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r'))
 		{
 			CloseTelnetConsole();
-			printf(booting);
+			log_prefix(); printf(booting);
 			RTCM_Reset();
 		}
 
