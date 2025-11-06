@@ -2545,6 +2545,18 @@ void process_gps(void)
 			// $GPRMC,194013.00,A,4032.94888,N,10511.83890,W,0.005,,020121,,,D*62
 			//        hhmmss                                        ddmmyy
 			// Use tm to pass binary time to getSecondsSinceEpoch
+
+			// Require GPRMC status 'A' (valid) before accepting the time
+			if ((!strs[2]) || (strs[2][0] != 'A'))
+			{
+				log_prefix();
+				printf("GPRMC: status '%c' (void) - ignoring time\n", (strs[2] && strs[2][0]) ? strs[2][0] : '?');
+				return;
+			}
+
+			log_prefix();
+			printf("GPRMC: valid status A received; parsing UTC time\n");
+
 			memset(&tm,0,sizeof(tm));
 			tm.tm_sec = twoascii(strs[1] + 4);
 			tm.tm_min = twoascii(strs[1] + 2);
@@ -2560,10 +2572,13 @@ void process_gps(void)
 					gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) AppConfig.GPSOffset;
 				gps_time_fresh = 1;
 
-	if (AppConfig.DebugLevel & 32)
-		if (AppConfig.DebugLevel & 32) log_prefix(), printf("GPS-DEBUG: mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
+		if (AppConfig.DebugLevel & 32)
+			if (AppConfig.DebugLevel & 32) log_prefix(), printf("GPS-DEBUG: mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
 
-		  if (!USE_PPS) system_time.vtime_sec = timing_time = real_time = gps_time + 1;
+		log_prefix();
+		printf("GPRMC: parsed GPS UTC time: %s", ctime((time_t *)&gps_time));
+
+		if (!USE_PPS) system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			return;
 		}
 	
@@ -2581,7 +2596,14 @@ void process_gps(void)
 			gpswarn = 0;
 			log_prefix(); printf(gpsmsg1);
 		}
-		n = atoi(strs[6]);
+        n = atoi(strs[6]);
+
+		log_prefix(); printf("GPGGA: fix-quality=%d, gps_nsat=%d\n", n, gps_nsat);
+
+		if (!gps_time)
+		{
+			log_prefix(); printf("GPGGA: have fix-quality %d but no parsed time yet\n", n);
+		}
 
 		if ((n < 1) || (n > 2)) 
 		{
@@ -2615,7 +2637,8 @@ void process_gps(void)
 		if ((gps_state == GPS_STATE_RECEIVED) && (gps_nsat > 0) && gps_time)
 		{
 			gps_state = GPS_STATE_VALID;
-	
+
+			log_prefix(); printf("GPGGA: promoting to VALID; sats=%d, parsed_time=%ld (%s)", gps_nsat, gps_time, (gps_time) ? ctime((time_t *)&gps_time) : "<no time>");
 			log_prefix(); printf(gpsmsg2);
 			printf("%d\n",gps_nsat);
 		}
