@@ -549,6 +549,13 @@ long missed;
 WORD misstimer;
 WORD misstimer1;
 
+/* Lightweight GPS time auto-resync state */
+BYTE time_mismatch_count;       // consecutive PPS->GPS second mismatches
+WORD time_resync_cooldown;      // inhibit rapid re-syncs (counts PPS events)
+BOOL gps_time_fresh;            // set when gps_time updated since last PPS
+BOOL time_resync_log_pending;   // defer console log outside ISR
+long time_resync_offset;        // signed seconds offset we corrected
+
 #ifdef DSPBEW
 	DWORD fftresult;
 #endif
@@ -961,6 +968,39 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 						last_samplecnt = samplecnt;
 						sendgps = 1;
 						real_time++;
+
+							// Lightweight auto-sync: if GPS time doesn't match expected next second for several PPS, re-sync
+							if (USE_PPS && gotpps && ((gps_state == GPS_STATE_VALID) || (gps_state == GPS_STATE_SYNCED)))
+							{
+								if (time_resync_cooldown) time_resync_cooldown--;
+								if (gps_time_fresh)
+								{
+									long signed_diff = (long)real_time - ((long)gps_time + 1);
+									long abs_diff = (signed_diff >= 0) ? signed_diff : -signed_diff;
+									if (abs_diff > 1)
+									{
+										time_mismatch_count++;
+									}
+									else
+									{
+										time_mismatch_count = 0;
+									}
+
+									if ((time_mismatch_count >= 3) && (time_resync_cooldown == 0))
+									{
+										// Log and correct to GPS time boundary (gps_time + 1 aligns with PPS edge in this firmware)
+										time_resync_offset = signed_diff;
+										system_time.vtime_sec = timing_time = real_time = gps_time + 1;
+										gpssync = 1;
+										time_mismatch_count = 0;
+										time_resync_cooldown = 10; // avoid resync loops: wait ~10 PPS before re-evaluating
+										time_resync_log_pending = 1;
+									}
+
+									// We've consumed this GPS update for PPS comparison
+									gps_time_fresh = 0;
+								}
+							}
 
 						if ((samplecnt < 8000) && (!SIMULCAST_ENABLE)) // If we are short one, insert another
 						{
@@ -2455,6 +2495,12 @@ void process_gps(void)
 		log_prefix();
 		printf(gpsmsg5);
 
+		// Reset resync tracking when we drop out of synced state
+		time_mismatch_count = 0;
+		time_resync_cooldown = 0;
+		gps_time_fresh = 0;
+		time_resync_log_pending = 0;
+
 		if (USE_PPS)
 		{
 			connected = 0;
@@ -2508,10 +2554,11 @@ void process_gps(void)
 			tm.tm_mon = twoascii(strs[9] + 2); // no longer need to -1, not using mktime()
 
 			tm.tm_year = twoascii(strs[9] + 4); // don't need to be relative to 1900, not using mktime()
-			if (AppConfig.DebugLevel & 64)
-				gps_time = (DWORD) getSecondsSinceEpoch(&tm) + 1 + (DWORD) AppConfig.GPSOffset; // Fix for GPS one second off
-			else
-				gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) AppConfig.GPSOffset;
+				if (AppConfig.DebugLevel & 64)
+					gps_time = (DWORD) getSecondsSinceEpoch(&tm) + 1 + (DWORD) AppConfig.GPSOffset; // Fix for GPS one second off
+				else
+					gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) AppConfig.GPSOffset;
+				gps_time_fresh = 1;
 
 	if (AppConfig.DebugLevel & 32)
 		if (AppConfig.DebugLevel & 32) log_prefix(), printf("GPS-DEBUG: mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
@@ -2543,6 +2590,12 @@ void process_gps(void)
 			gps_state = GPS_STATE_IDLE;
 			log_prefix();
 			printf(gpsmsg6);
+
+			// Reset resync tracking when GPS is lost
+			time_mismatch_count = 0;
+			time_resync_cooldown = 0;
+			gps_time_fresh = 0;
+			time_resync_log_pending = 0;
 
 			if (USE_PPS)
 			{
@@ -2607,9 +2660,9 @@ void process_gps(void)
 
 			gpsweek = gps_buf[7] | ((WORD)gps_buf[6] << 8); // gps week number (two bytes)
 
-			if (!AppConfig.GPSTbolt) // if this isn't a Tbolt device, don't fudge the time
+				if (!AppConfig.GPSTbolt) // if this isn't a Tbolt device, don't fudge the time
 			{
-				gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) AppConfig.GPSOffset;
+					gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) AppConfig.GPSOffset;
 			}
 			else
 			{
@@ -2627,7 +2680,7 @@ void process_gps(void)
 
 				if (gpsweek >= 1024) // this isn't a Tbolt, so don't fudge the time
 				{
-					gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) AppConfig.GPSOffset;
+						gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) AppConfig.GPSOffset;
 				}
 			}
 
@@ -2641,8 +2694,9 @@ void process_gps(void)
 			   because the time will be offset (by leap seconds). */
 			if (!gps_buf[10]) 
 			{
-				gps_time = gps_time - gpsleap;
+					gps_time = gps_time - gpsleap;
 			}
+				gps_time_fresh = 1;
 			
 			if (AppConfig.DebugLevel & 32)
 			{
@@ -2699,6 +2753,12 @@ void process_gps(void)
 				gps_state = GPS_STATE_IDLE;
 				log_prefix();
 				printf(gpsmsg6);
+
+				// Reset resync tracking on GPS loss (TSIP supplemental)
+				time_mismatch_count = 0;
+				time_resync_cooldown = 0;
+				gps_time_fresh = 0;
+				time_resync_log_pending = 0;
 
 				if (USE_PPS)
 				{
@@ -3958,6 +4018,13 @@ void secondary_processing_loop(void)
 		log_prefix();
 		printf(hosttmomsg);
 		hosttimedout = 0;
+	}
+
+	if (time_resync_log_pending)
+	{
+		log_prefix();
+		printf("GPS time re-synchronized; %+ld seconds\n", time_resync_offset);
+		time_resync_log_pending = 0;
 	}
 
 	if (dnsnotify == 1)
