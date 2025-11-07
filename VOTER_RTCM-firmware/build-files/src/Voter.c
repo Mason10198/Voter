@@ -313,8 +313,8 @@ ROM char log_warn_prefix[] = "WARN: ";
 // Simplified logging - just prefix with category, caller adds message
 #define LOG_GPS(fmt, ...)  do { log_prefix(); printf(log_gps_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
 #define LOG_NET(fmt, ...)  do { log_prefix(); printf(log_net_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
-#define LOG_RX(fmt, ...)   do { if (AppConfig.DebugLevel & 2) { log_prefix(); printf(log_rx_prefix); printf(fmt, ##__VA_ARGS__); } } while(0)
-#define LOG_TX(fmt, ...)   do { if (AppConfig.DebugLevel & 2) { log_prefix(); printf(log_tx_prefix); printf(fmt, ##__VA_ARGS__); } } while(0)
+#define LOG_RX(fmt, ...)   do { if (AppConfig.DebugLevel & 1) { log_prefix(); printf(log_rx_prefix); printf(fmt, ##__VA_ARGS__); } } while(0)
+#define LOG_TX(fmt, ...)   do { if (AppConfig.DebugLevel & 1) { log_prefix(); printf(log_tx_prefix); printf(fmt, ##__VA_ARGS__); } } while(0)
 #define LOG_PKT(fmt, ...)  do { log_prefix(); printf(log_pkt_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
 #define LOG_SYS(fmt, ...)  do { log_prefix(); printf(log_sys_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
 #define LOG_ERR(fmt, ...)  do { log_prefix(); printf(log_err_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
@@ -4228,32 +4228,6 @@ void secondary_processing_loop(void)
 		#endif
 	}
 
-	if (AppConfig.DebugLevel & 1)
-	{
-		if (altchange)
-		{
-			if (althost)
-			{
-				LOG_NET("Using alternate host ");
-				printf(fmt_ip,MyAltVoterAddr.v[0],MyAltVoterAddr.v[1],MyAltVoterAddr.v[2],MyAltVoterAddr.v[3]);
-				printf("\n");
-			}
-			else
-			{
-				LOG_NET("Using primary host ");
-				printf(fmt_ip,MyVoterAddr.v[0],MyVoterAddr.v[1],MyVoterAddr.v[2],MyVoterAddr.v[3]);
-				printf("\n");
-			}
-		}
-
-		if (altchange1)
-		{
-			LOG_NET("Connection using host ");
-			printf(fmt_ip,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
-			printf("\n");
-		}
-	}
-
 	altchange = 0;
 	altchange1 = 0;
 }
@@ -5600,7 +5574,7 @@ int main(void)
 			/* If user selected Debug Level (14), print the bit descriptions first */
 			if (sel == 14)
 			{
-				printf("\n1 - Alt/Main Host change notifications\n2 - Radio RX / TX logging\n4 - N/A\n8 - N/A\n16 - Disable IP TOS Class for Ubiquiti\n32 - GPS Debug\n64 - Fix GPS 1 second off\n128 - N/A\n\n");
+				printf("\n1 - Radio RX / TX logging\n2 - N/A\n4 - N/A\n8 - N/A\n16 - Disable IP TOS Class for Ubiquiti\n32 - GPS Debug\n64 - Fix GPS 1 second off\n128 - N/A\n\n");
 			}
 
 			printf(entnewval);
