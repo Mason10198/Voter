@@ -283,6 +283,12 @@ ROM char str_exit_menu[] = "Exit";
 ROM char str_disconnect[] = "Disconnect remote console session";
 ROM char str_reboot[] = "Reboot system";
 ROM char str_back_main[] = "Back to main menu";
+ROM char str_enter_newval[] = "Enter new value: ";
+ROM char str_menu_prompt_qrx[] = "\nq  - ";
+ROM char str_menu_prompt_r[] = ", r - ";
+ROM char str_menu_prompt_x[] = "x  - ";
+ROM char str_menu_separator[] = " (";
+ROM char str_menu_close[] = ")\n";
 
 // Common error/status messages
 ROM char err_invalid_prefix[] = "Invalid entry: ";
@@ -292,7 +298,22 @@ ROM char msg_changed_success[] = "Value changed successfully\n";
 ROM char msg_error_prefix[] = "ERROR: ";
 
 // Original strings (some now use consolidated strings)
-
+ROM char gpsmsg1[] = "Receiver active, awaiting satellite lock\n",
+		gpsmsg2[] = "Signal acquired, sats=",
+		gpsmsg3[] = "Time sync established\n",
+		gpsmsg5[] = "Lost time synchronization\n",
+		gpsmsg6[] = "Signal lost, restarting\n",
+		gpsmsg7[] = "Data timeout\n",
+		gpsmsg8[] = "PPS timeout\n",
+		gpsmsg9[] = "Signal acquired\n",
+		saved[] = "Configuration saved to EEPROM\n",
+		invalselection[] = "Invalid selection\n",
+		booting[] = "System Re-Booting...\n";
+ 
+char 		newvalerror[] = "Invalid entry: value not changed\n", 
+ 		newvalnotchanged[] = "No entry: value not changed\n",
+ 	badmix[] = "Host rejected MIX mode request\n",
+ 	hosttmomsg[] = "Host response timeout\n";
 
 // ========== Logging System - ROM-Efficient Implementation ==========
 // Use inline functions instead of macros to reduce code size
@@ -320,6 +341,8 @@ ROM char log_warn_prefix[] = "WARN: ";
 #define LOG_SYS(fmt, ...)  do { log_prefix(); printf(log_sys_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
 #define LOG_ERR(fmt, ...)  do { log_prefix(); printf(log_err_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
 #define LOG_WARN(fmt, ...) do { log_prefix(); printf(log_warn_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
+/* GPS Debug logging uses debug bit 32 */
+#define LOG_GPS_DEBUG(fmt, ...) do { if (AppConfig.DebugLevel & 32) { log_prefix(); printf("GPS-DEBUG: "); printf(fmt, ##__VA_ARGS__); } } while(0)
 
 // ========== Reusable Log Message Strings ==========
 // Common state names for consistency
@@ -332,23 +355,6 @@ ROM char log_deasserted[] = "de-asserted";
 ROM char log_rising[] = "Rising";
 ROM char log_falling[] = "Falling";
 
-// Legacy message strings (kept for backward compatibility during transition)
-ROM char gpsmsg1[] = "Receiver active, awaiting satellite lock\n",
-		gpsmsg2[] = "Signal acquired, sats=",
-		gpsmsg3[] = "Time sync established\n",
-		gpsmsg5[] = "Lost time synchronization\n",
-		gpsmsg6[] = "Signal lost, restarting\n",
-		gpsmsg7[] = "Data timeout\n",
-		gpsmsg8[] = "PPS timeout\n",
-		gpsmsg9[] = "Signal acquired\n",
-		entnewval[] = "Enter new value: ", 
-		newvalchanged[] = "Value changed successfully\n",
-		saved[] = "Configuration saved to EEPROM\n";
- 
-char 		newvalerror[] = "Invalid entry: value not changed\n", 
- 		newvalnotchanged[] = "No entry: value not changed\n",
- 	badmix[] = "Host rejected MIX mode request\n",
- 	hosttmomsg[] = "Host response timeout\n";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -872,8 +878,7 @@ static ROM struct morse_bits mbits[] = {
 };
 
 static ROM char rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n",
-		invalselection[] = "Invalid selection\n", paktc[] = "\nPress Enter to continue...\n",
-		booting[] = "System Re-Booting...\n";
+		paktc[] = "\nPress Enter to continue...\n";
 
 char dummy_loc;
 BYTE IOExpOutA,IOExpOutB,IODirB;
@@ -2566,9 +2571,12 @@ void process_gps(void)
 
 		if ((AppConfig.DebugLevel & 32) && strstr((char *)gps_buf,gprmc))
 		{
-			if (AppConfig.DebugLevel & 32) { log_prefix(); printf("GPS-DEBUG: %s\n",gps_buf); }
+			LOG_GPS_DEBUG("%s\n",gps_buf);
 
-			if ((ppsx) && (AppConfig.PPSPolarity <= 1)) { if (AppConfig.DebugLevel & 32) { log_prefix(); printf("GPS-DEBUG: PPS Configured but no pulse found, check polarity?\n"); } }
+			if ((ppsx) && (AppConfig.PPSPolarity <= 1)) 
+			{ 
+				LOG_GPS_DEBUG("PPS Configured but no pulse found, check polarity?\n"); 
+			}
 		}
 
 		n = explode_string((char *)gps_buf,strs,30,',','\"');
@@ -2625,8 +2633,7 @@ void process_gps(void)
 					gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) AppConfig.GPSOffset;
 				gps_time_fresh = 1;
 
-	if (AppConfig.DebugLevel & 32)
-		if (AppConfig.DebugLevel & 32) log_prefix(), printf("GPS-DEBUG: mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
+	LOG_GPS_DEBUG("mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
 
 	if (!USE_PPS) system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 		return;
@@ -2645,15 +2652,14 @@ void process_gps(void)
 			LOG_GPS("%s", gpsmsg1);
 			last_gps_state_logged = GPS_STATE_RECEIVED;
 		}
-        n = atoi(strs[6]);
+		n = atoi(strs[6]);
 
-		if (AppConfig.DebugLevel & 32) LOG_GPS("GPGGA fix-quality=%d, sats=%d\n", n, gps_nsat);
+		LOG_GPS_DEBUG("GPGGA fix-quality=%d, sats=%d\n", n, gps_nsat);
 
 		if (!gps_time)
 		{
-			if (AppConfig.DebugLevel & 32) LOG_GPS("GPGGA fix=%d, awaiting time parse\n", n);
+			LOG_GPS_DEBUG("GPGGA fix=%d, awaiting time parse\n", n);
 		}
-
 		if ((n < 1) || (n > 2)) 
 		{
 			if (gps_state == GPS_STATE_RECEIVED) return;
@@ -2768,10 +2774,11 @@ void process_gps(void)
 			}
 				gps_time_fresh = 1;
 			
-			if (AppConfig.DebugLevel & 32)
-			{
-			 	if (AppConfig.DebugLevel & 32) log_prefix(), printf("GPS-DEBUG: gps_epoch_time: %ld, ctime: %s, gps_week: %d\n",gps_time,ctime((time_t *)&gps_time),gpsweek);
-				if ((ppsx) && (AppConfig.PPSPolarity <= 1)) { if (AppConfig.DebugLevel & 32) { log_prefix(); printf("GPS-DEBUG: PPS Configured but no pulse found, check polarity?\n"); } }
+			LOG_GPS_DEBUG("gps_epoch_time: %ld, ctime: %s, gps_week: %d\n",gps_time,ctime((time_t *)&gps_time),gpsweek);
+			
+			if ((ppsx) && (AppConfig.PPSPolarity <= 1)) 
+			{ 
+				LOG_GPS_DEBUG("PPS Configured but no pulse found, check polarity?\n"); 
 			}
 
 			if (!USE_PPS) system_time.vtime_sec = timing_time = gps_time + 1;
@@ -2797,13 +2804,8 @@ void process_gps(void)
 			ie gps_buf[12]=0x0a -> Antenna Open, Not Tracking Satellites
 			   gps_buf[11]=0x08 -> Almanac not complete */
 
-			if (AppConfig.DebugLevel & 32)
-			{
-				if (AppConfig.DebugLevel & 32) {
-					log_prefix(); printf("GPS-DEBUG: TSIP: ok %d, 2,3,9 - 14: %02x %02x %02x %02x %02x %02x %02x %02x\n",
-						happy,gps_buf[2],gps_buf[3],gps_buf[9],gps_buf[10],gps_buf[11],gps_buf[12],gps_buf[13],gps_buf[14]);
-				}
-			}
+			LOG_GPS_DEBUG("TSIP: ok %d, 2,3,9 - 14: %02x %02x %02x %02x %02x %02x %02x %02x\n",
+				happy,gps_buf[2],gps_buf[3],gps_buf[9],gps_buf[10],gps_buf[11],gps_buf[12],gps_buf[13],gps_buf[14]);
 
 			gpswarn = 0;
 			gpstimer = 0;
@@ -4492,6 +4494,71 @@ static void SetDynDNS(void)
 
 /*****************************************************************************/
 //									     //
+//		Menu Input Helper Function				     //
+//									     //
+/*****************************************************************************/
+/* Returns: 0 = aborted, 1 = quit (q), 2 = reboot (r), 3 = exit (x), 4 = got input */
+static int menu_get_input(ROM char *prompt)
+{
+	aborted = 0;
+	
+	while(!aborted)
+	{
+		printf(prompt);
+		memset(cmdstr,0,sizeof(cmdstr));
+		
+		if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) continue;
+		
+		if (!strchr(cmdstr,'!')) break;
+	}
+	
+	if (aborted) return 0;
+	
+	if ((strchr(cmdstr,'Q')) || strchr(cmdstr,'q'))
+	{
+		CloseTelnetConsole();
+		return 1;
+	}
+	
+	if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r'))
+	{
+		CloseTelnetConsole();
+		log_prefix(); 
+		printf(booting);
+		RTCM_Reset();
+		return 2; // Never reached
+	}
+	
+	if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x'))
+	{
+		return 3;
+	}
+	
+	return 4; // Got input
+}
+
+/* Print common menu footer with navigation options */
+static void menu_print_footer(ROM char *menu_name)
+{
+	printf(str_save_eeprom);
+	printf(str_menu_prompt_x);
+	printf(str_exit_menu);
+	printf(" ");
+	printf(menu_name);
+	printf(str_menu_separator);
+	printf(str_back_main);
+	printf(str_menu_close);
+	printf(str_menu_prompt_qrx);
+	printf(str_disconnect);
+	printf(str_menu_prompt_r);
+	printf(str_reboot);
+	printf("\n\n");
+	fflush(stdout);
+}
+
+
+/*****************************************************************************/
+//									     //
 //		IP Menu							     //
 //									     //
 /*****************************************************************************/
@@ -4560,55 +4627,23 @@ static void IPMenu()
 			AppConfig.BootIPAddr.v[3],(bootok) ? "OK" : "BAD",AppConfig.EthFullDuplex);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(str_save_eeprom);
-		printf("x  - ");
-		printf(str_exit_menu);
-		printf(" IP Parameters Menu (");
-		printf(str_back_main);
-		printf(")\nq  - ");
-		printf(str_disconnect);
-		printf(", r - ");
-		printf(str_reboot);
-		printf("\n\n");
-		fflush(stdout);
-		aborted = 0;
-
-		while(!aborted)
+		menu_print_footer("IP Parameters Menu");
+		
+		switch(menu_get_input(entsel))
 		{
-			printf(entsel);
-			memset(cmdstr,0,sizeof(cmdstr));
-
-			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) continue;
-
-			if (!strchr(cmdstr,'!')) break;
+			case 0: continue; // aborted
+			case 1: continue; // quit
+			case 2: continue; // reboot (never reached)
+			case 3: return;   // exit menu
 		}
 
-		if (aborted) continue;
-
-		if ((strchr(cmdstr,'Q')) || strchr(cmdstr,'q'))
-		{
-			CloseTelnetConsole();
-			continue;
-		}
-
-		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r'))
-		{
-			CloseTelnetConsole();
-			log_prefix(); printf(booting);
-			RTCM_Reset();
-		}
-
-		if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x'))
-		{
-			break;
-		}
-
+		
 		printf(" \n");
 		sel = atoi(cmdstr);
 
 		if ((sel >= 1) && (sel <= 15))
 		{
-			printf(entnewval);
+			printf(str_enter_newval);
 
 			if (aborted) continue;
 
@@ -4620,7 +4655,6 @@ static void IPMenu()
 
 			if (aborted) continue;
 		}
-
 		ok = 0;
 		switch(sel)
 		{
@@ -4839,55 +4873,23 @@ static void OffLineMenu()
 		printf(menu1a,(double)AppConfig.CTCSSTone,AppConfig.CTCSSLevel,AppConfig.OffLineNoDeemp);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(str_save_eeprom);
-		printf("x  - ");
-		printf(str_exit_menu);
-		printf(" OffLine Mode Parameter Menu (");
-		printf(str_back_main);
-		printf(")\nq  - ");
-		printf(str_disconnect);
-		printf(", r - ");
-		printf(str_reboot);
-		printf("\n\n");
-		fflush(stdout);
-		aborted = 0;
-
-		while(!aborted)
+		menu_print_footer("OffLine Mode Parameter Menu");
+		
+		switch(menu_get_input(entsel))
 		{
-			printf(entsel);
-			memset(cmdstr,0,sizeof(cmdstr));
-
-			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) continue;
-
-			if (!strchr(cmdstr,'!')) break;
+			case 0: continue; // aborted
+			case 1: continue; // quit
+			case 2: continue; // reboot (never reached)
+			case 3: return;   // exit menu
 		}
 
-		if (aborted) continue;
-
-		if ((strchr(cmdstr,'Q')) || strchr(cmdstr,'q'))
-		{
-			CloseTelnetConsole();
-			continue;
-		}
-
-		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r'))
-		{
-			CloseTelnetConsole();
-			log_prefix(); printf(booting);
-			RTCM_Reset();
-		}
-
-		if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x'))
-		{
-			break;
-		}
-
+		
 		printf(" \n");
 		sel = atoi(cmdstr);
 
 		if ((sel >= 1) && (sel <= 11))
 		{
-			printf(entnewval);
+			printf(str_enter_newval);
 
 			if (aborted) continue;
 
@@ -5014,10 +5016,11 @@ static void OffLineMenu()
 				printf(invalselection);
 				continue;
 		}
+		
+		if (ok) printf(msg_changed_success);
+		else printf(newvalerror);
 	}
-}
-
-/*****************************************************************************/
+}/*****************************************************************************/
 //									     //
 //		Squelch Menu						     //
 //									     //
@@ -5040,55 +5043,23 @@ static void SquelchMenu()
 		printf(menu,AppConfig.Sqpot,AppConfig.Squelch,AppConfig.Hysteresis);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(str_save_eeprom);
-		printf("x  - ");
-		printf(str_exit_menu);
-		printf(" Squelch Parameter Menu (");
-		printf(str_back_main);
-		printf(")\nq  - ");
-		printf(str_disconnect);
-		printf(", r - ");
-		printf(str_reboot);
-		printf("\n\n");
-		fflush(stdout);
-		aborted = 0;
-
-		while(!aborted)
+		menu_print_footer("Squelch Parameter Menu");
+		
+		switch(menu_get_input(entsel))
 		{
-			printf(entsel);
-			memset(cmdstr,0,sizeof(cmdstr));
-
-			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) continue;
-
-			if (!strchr(cmdstr,'!')) break;
+			case 0: continue; // aborted
+			case 1: continue; // quit
+			case 2: continue; // reboot (never reached)
+			case 3: return;   // exit menu
 		}
 
-		if (aborted) continue;
-
-		if ((strchr(cmdstr,'Q')) || strchr(cmdstr,'q'))
-		{
-			CloseTelnetConsole();
-			continue;
-		}
-
-		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r'))
-		{
-			CloseTelnetConsole();
-			log_prefix(); printf(booting);
-			RTCM_Reset();
-		}
-
-		if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x'))
-		{
-			break;
-		}
-
+		
 		printf(" \n");
 		sel = atoi(cmdstr);
 
 		if ((sel >= 1) && (sel <= 3))
 		{
-			printf(entnewval);
+			printf(str_enter_newval);
 
 			if (aborted) continue;
 
@@ -5139,9 +5110,11 @@ static void SquelchMenu()
 				printf(invalselection);
 				continue;
 		}
+		
+		if (ok) printf(msg_changed_success);
+		else printf(newvalerror);
 	}
 }
-
 
 /*****************************************************************************/
 //									     //
@@ -5575,36 +5548,17 @@ int main(void)
 #endif
 		printf(str_save_eeprom);
 		printf("i - IP Parameters menu, o - Offline Mode Parameters menu, s - Squelch menu\n");
-		printf("q - ");
+		printf(str_menu_prompt_qrx);
 		printf(str_disconnect);
-		printf(", r - ");
+		printf(str_menu_prompt_r);
 		printf(str_reboot);
 		printf("\n\n");
-		aborted = 0;
-
-		while(!aborted)
+		
+		switch(menu_get_input(entsel))
 		{
-			printf(entsel);
-			memset(cmdstr,0,sizeof(cmdstr));
-
-			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) continue;
-
-			if (!strchr(cmdstr,'!')) break;
-		}
-
-		if (aborted) continue;
-
-		if ((strchr(cmdstr,'Q')) || strchr(cmdstr,'q'))
-		{
-			CloseTelnetConsole();
-			continue;
-		}
-
-		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r'))
-		{
-			CloseTelnetConsole();
-			log_prefix(); printf(booting);
-			RTCM_Reset();
+			case 0: continue; // aborted
+			case 1: continue; // quit
+			case 2: continue; // reboot (never reached)
 		}
 
 		if ((strchr(cmdstr,'I')) || strchr(cmdstr,'i'))
@@ -5639,7 +5593,7 @@ int main(void)
 					printf("Note: Multiple options can be enabled by summing their values (e.g., 3 = 1+2)\n\n");
 				}
 
-			printf(entnewval);
+			printf(str_enter_newval);
 
 			if (aborted) continue;
 
@@ -6012,7 +5966,7 @@ int main(void)
 				continue;
 		}
 
-		if (ok) printf(newvalchanged);
+		if (ok) printf(msg_changed_success);
 		else printf(newvalerror);
 	}
 }
