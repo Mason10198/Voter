@@ -76,18 +76,6 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 // Include all headers for any enabled TCPIP Stack functions
 #include "TCPIP Stack/TCPIP.h"
 
-/* Debug values:
-1 - Alt/Main Host change notifications
-2 - Radio RX / TX logging
-4 - not currently used
-8 - not currently used
-16 - Disable IP TOS Class for Ubiquiti
-32 - GPS Debug
-64 - Fix GPS 1 second off
-128 - not currently used
-
-*/
-
 /* NOTE: By default, audio between the host and the client will be 
    encoded in ulaw, UNLESS specifically set by the adpcm option 
    in voter.conf on the host.
@@ -105,10 +93,17 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 */
 
 /* Update the version number for the firmware here */
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "4.00"
+#endif
+
+/* Build date/time inserted by compiler via __DATE__ and __TIME__ */
+const char FIRMWARE_BUILD_DATE[] = __DATE__ " " __TIME__;
+
 #ifdef DSPBEW
-	char	VERSION[] = "4.00 BEW 11/1/2025";
+	char VERSION[] = FIRMWARE_VERSION " BEW (" __DATE__ " " __TIME__ ")";
 #else
-	char	VERSION[] = "4.00 11/1/2025";
+	char VERSION[] = FIRMWARE_VERSION " (" __DATE__ " " __TIME__ ")";
 #endif
 
 #define M_PI       3.14159265358979323846
@@ -305,6 +300,7 @@ ROM char log_gps_prefix[] = "GPS: ";
 ROM char log_net_prefix[] = "NET: ";
 ROM char log_rx_prefix[] = "RX: ";
 ROM char log_tx_prefix[] = "TX: ";
+ROM char log_stat_prefix[] = "STAT: ";
 ROM char log_pkt_prefix[] = "PKT: ";
 ROM char log_sys_prefix[] = "SYS: ";
 ROM char log_err_prefix[] = "ERR: ";
@@ -313,8 +309,13 @@ ROM char log_warn_prefix[] = "WARN: ";
 // Simplified logging - just prefix with category, caller adds message
 #define LOG_GPS(fmt, ...)  do { log_prefix(); printf(log_gps_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
 #define LOG_NET(fmt, ...)  do { log_prefix(); printf(log_net_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
+/* Radio RX/TX logging uses debug bit 1 */
 #define LOG_RX(fmt, ...)   do { if (AppConfig.DebugLevel & 1) { log_prefix(); printf(log_rx_prefix); printf(fmt, ##__VA_ARGS__); } } while(0)
 #define LOG_TX(fmt, ...)   do { if (AppConfig.DebugLevel & 1) { log_prefix(); printf(log_tx_prefix); printf(fmt, ##__VA_ARGS__); } } while(0)
+/* STAT category for per-second statistics, enabled by debug bit 2
+	Note: messages should start with the short category like "TX STAT:" or "RX STAT:" so the final
+	output becomes: "[timestamp] TX STAT: ..." */
+#define LOG_STAT(fmt, ...)  do { if (AppConfig.DebugLevel & 2) { log_prefix(); printf(fmt, ##__VA_ARGS__); } } while(0)
 #define LOG_PKT(fmt, ...)  do { log_prefix(); printf(log_pkt_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
 #define LOG_SYS(fmt, ...)  do { log_prefix(); printf(log_sys_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
 #define LOG_ERR(fmt, ...)  do { log_prefix(); printf(log_err_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
@@ -3670,6 +3671,10 @@ void secondary_processing_loop(void)
 {
 
 	static DWORD t = 0, t1 = 0, t2 = 0, tdisp = 0;
+	/* Audio stats timing / accumulation for debug option 2 */
+	static DWORD last_aud_stats = 0;
+	static DWORD rssi_sum_sec = 0;
+	static WORD  rssi_count_sec = 0;
 
 	long meas,thresh;
 	WORD i,mypeak;
@@ -3804,9 +3809,14 @@ void secondary_processing_loop(void)
 		
 			rssi = calcrssi(mynoise >> 3);
 
+
 			if ((rssi < 1) && (qualcor)) rssiheld = rssi = 1;
 
 			if (!AppConfig.SqlNoiseGain) rssiheld = rssi = 0;
+
+			/* Accumulate RSSI samples for 1s averaging (used by debug option 2) */
+			rssi_sum_sec += rssiheld;
+			rssi_count_sec++;
 
 			// Log COR state changes
 			{
@@ -4026,6 +4036,57 @@ void secondary_processing_loop(void)
 #ifdef	SILLY
 	printf("%lu\n",sillyval);
 #endif	
+	}
+
+	/* Audio statistics: every 1 second while TXing or RXing, print stats when debug option 2 is enabled */
+	if ((AppConfig.DebugLevel & 2) && (TickGet() - last_aud_stats >= TICK_SECOND))
+	{
+		last_aud_stats = TickGet();
+
+		/* TX: print only when PTT is asserted */
+		if (ptt)
+		{
+			/* Compute queued frames/ms from circular buffer indices */
+			unsigned int queued_frames = 0;
+			if (fillindex >= txdrainindex) queued_frames = fillindex - txdrainindex;
+			else queued_frames = AppConfig.TxBufferLength - (txdrainindex - fillindex);
+			unsigned int queued_ms = queued_frames >> 3; /* buffer ms = TxBufferLength >> 3 */
+
+			LOG_STAT("TX STAT: tx=%ld host=%ld q=%ums drain=%u miss=%ld opt=0x%02X\n",
+				txseqno, host_txseqno, queued_ms, txdrainindex, missed, option_flags);
+		}
+
+		/* RX: Only print when actually receiving and CTCSS (if required) */
+		if (HasCOR() && HasCTCSS())
+		{
+			unsigned int avg = 0;
+			unsigned long ms_since_rx = 0;
+			if (rssi_count_sec) avg = (unsigned int)(rssi_sum_sec / rssi_count_sec);
+
+			/* Convert RSSI (0-255) to percent for easier reading */
+			unsigned int rssi_pct = 0;
+			if (avg) rssi_pct = (unsigned int)(((unsigned long)avg * 100UL + 127UL) / 255UL);
+
+			if (last_rxpacket_sys_time.vtime_sec)
+			{
+				long mydiff = system_time.vtime_sec - last_rxpacket_sys_time.vtime_sec;
+				long mydiff1 = system_time.vtime_nsec - last_rxpacket_sys_time.vtime_nsec;
+				mydiff *= 1000;
+				mydiff1 /= 1000000;
+				mydiff += mydiff1;
+				if (mydiff < 0) mydiff = 0;
+				ms_since_rx = (unsigned long) mydiff;
+			}
+
+			LOG_STAT("RX STAT: rssi=%u%% samples=%u last_samplecnt=%u missed=%ld ms=%lu inx=%ld inb=%d\n",
+				rssi_pct, rssi_count_sec, last_samplecnt, missed, ms_since_rx, last_rxpacket_index, last_rxpacket_inbounds);
+		}
+
+		/* no snapshot needed when TX is gated strictly by PTT */
+
+		/* reset accumulators */
+		rssi_sum_sec = 0;
+		rssi_count_sec = 0;
 	}
 
 	if ((!indipsw) && (!indisplay) && (!leddiag)) tdisp = 0;
@@ -5572,10 +5633,11 @@ int main(void)
 #endif
 		{
 			/* If user selected Debug Level (14), print the bit descriptions first */
-			if (sel == 14)
-			{
-				printf("\n1 - Radio RX / TX logging\n2 - N/A\n4 - N/A\n8 - N/A\n16 - Disable IP TOS Class for Ubiquiti\n32 - GPS Debug\n64 - Fix GPS 1 second off\n128 - N/A\n\n");
-			}
+				if (sel == 14)
+				{
+					printf("\n1 - Radio RX / TX logging\n2 - Statistics (per-second)\n4 - N/A\n8 - N/A\n16 - Disable IP TOS Class for Ubiquiti\n32 - GPS Debug\n64 - Fix GPS 1 second off\n128 - N/A\n\n");
+					printf("Note: Multiple options can be enabled by summing their values (e.g., 3 = 1+2)\n\n");
+				}
 
 			printf(entnewval);
 
