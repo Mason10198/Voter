@@ -93,16 +93,13 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 */
 
 /* Update the version number for the firmware here */
-#ifndef FIRMWARE_VERSION
 #define FIRMWARE_VERSION "4.00"
-#endif
+
+/* There's room! Force BEW mode unconditionally */
+#define DSPBEW
 
 /* Build date/time inserted by compiler via __DATE__ and __TIME__ */
-#ifdef DSPBEW
-	const ROM char VERSION[] = FIRMWARE_VERSION " BEW (" __DATE__ " " __TIME__ ")";
-#else
-	const ROM char VERSION[] = FIRMWARE_VERSION " (" __DATE__ " " __TIME__ ")";
-#endif
+const ROM char VERSION[] = FIRMWARE_VERSION "(" __DATE__ " " __TIME__ ")";
 
 #define M_PI       3.14159265358979323846
 
@@ -3588,7 +3585,7 @@ void secondary_processing_loop(void)
 	static WORD dev_samples_count = 0;
 
 	long meas;
-	WORD i,mypeak;
+	WORD mypeak;
 	long x,y,z;
 	static BYTE dispcnt = 0;
 
@@ -5055,7 +5052,6 @@ int main(void)
 
 	WORD sel;
 	time_t t;
-	BYTE i;
 	long mydiff,mydiff1;
 
 	static /*ROM*/ char defwritten[] = "\nDefault Values Written to EEPROM\n",
