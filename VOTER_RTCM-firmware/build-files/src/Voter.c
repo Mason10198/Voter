@@ -99,7 +99,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define DSPBEW
 
 /* Build date/time inserted by compiler via __DATE__ and __TIME__ */
-const ROM char VERSION[] = FIRMWARE_VERSION "(" __DATE__ " " __TIME__ ")";
+const ROM char VERSION[] = FIRMWARE_VERSION " (" __DATE__ " " __TIME__ ")";
 
 #define M_PI       3.14159265358979323846
 
@@ -4012,11 +4012,16 @@ void secondary_processing_loop(void)
 		{
 			// Deviation calculation calibrated at 3.0 KHz reference point:
 			// At 3.0 KHz actual deviation, firmware measures 2.73 KHz raw
-			// Calibration multiplier: 3.0 / 2.73 = 1.0989
+			// Calibration multiplier: CAL_FACTOR = 3.0 / 2.73 = 1.0989 adjusted to 1.1062
 			// The bar display gives: raw_khz = (meas * 5.0) / 12231
-			// Calibrated formula: actual_khz = raw_khz * 1.0989
-			// Combined: actual_khz = (meas * 5.4945) / 12231 = meas / 2226.9
-			float deviation_khz = ((float)meas * 5.4945f) / 12231.0f;
+			// Calibrated formula: actual_khz = raw_khz * CAL_FACTOR
+			// Combined: actual_khz = (meas * CAL_FACTOR * 5.0) / 12231
+			// Using CAL_FACTOR = 1.1062 → actual_khz = (meas * 5.531) / 12231 = meas / 2211.0
+
+			#define CAL_FACTOR 1.1062f  // deviation calibration multiplier (adjust as needed)
+
+			float deviation_khz = ((float)meas * CAL_FACTOR * 5.0f) / 12231.0f;
+
 			float avg_15s = 0;
 			WORD count_15s;
 			WORD j, idx;
@@ -4036,7 +4041,7 @@ void secondary_processing_loop(void)
 			if (count_15s > 0) avg_15s /= count_15s;
 
 			// Display on single line
-			printf("RX Level | Instant: %.2f KHz | 15s Avg: %.2f KHz\r",
+			printf("Instant: %.2f KHz | 15s Avg: %.2f KHz\r",
 			       (double)deviation_khz, (double)avg_15s);
 			fflush(stdout);
 		}
