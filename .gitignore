@@ -53,5 +53,10 @@ dkms.conf
 
 # debug information files
 *.dwo
-VOTER_RTCM-firmware/build-files/voter.cof
-VOTER_RTCM-firmware/build-files/Voter.cry
+
+# Compiler Stuff
+*.cof
+*.mcs
+
+#Other
+VOTER_RTCM-firmware/build-files/src/VOTER_3_00.c
