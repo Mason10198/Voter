@@ -67,6 +67,13 @@ file_039=.
 file_040=.
 file_041=.
 file_042=.
+file_043=.
+file_044=.
+file_045=.
+file_046=.
+file_047=.
+file_048=.
+file_049=.
 [GENERATED_FILES]
 file_000=no
 file_001=no
@@ -111,6 +118,13 @@ file_039=no
 file_040=no
 file_041=no
 file_042=no
+file_043=no
+file_044=no
+file_045=no
+file_046=no
+file_047=no
+file_048=no
+file_049=no
 [OTHER_FILES]
 file_000=no
 file_001=no
@@ -155,6 +169,13 @@ file_039=no
 file_040=no
 file_041=no
 file_042=no
+file_043=no
+file_044=no
+file_045=no
+file_046=no
+file_047=no
+file_048=no
+file_049=no
 [FILE_INFO]
 file_000=src\TCPIP Stack\ARP.c
 file_001=src\TCPIP Stack\Delay.c
@@ -175,30 +196,37 @@ file_015=src\TCPIP Stack\TCP.c
 file_016=src\TCPIP Stack\DynDNS.c
 file_017=src\doubleify.c
 file_018=src\TCPIP Stack\ICMP.c
-file_019=src\Voter.c
-file_020=src\HardwareProfile.h
-file_021=src\TCPIPConfig.h
-file_022=src\TCPIP Stack\StackTsk.h
-file_023=src\TCPIP Stack\UART.h
-file_024=src\TCPIP Stack\TCPIP.h
-file_025=src\TCPIP Stack\ARP.h
-file_026=src\TCPIP Stack\Delay.h
-file_027=src\TCPIP Stack\DHCP.h
-file_028=src\TCPIP Stack\DNS.h
-file_029=src\TCPIP Stack\ENC28J60.h
-file_030=src\TCPIP Stack\Helpers.h
-file_031=src\TCPIP Stack\IP.h
-file_032=src\TCPIP Stack\MAC.h
-file_033=src\TCPIP Stack\Random.h
-file_034=src\TCPIP Stack\Reboot.h
-file_035=src\TCPIP Stack\Tick.h
-file_036=src\TCPIP Stack\UDP.h
-file_037=src\TCPIP Stack\XEEPROM.h
-file_038=src\TCPIP Stack\Telnet.h
-file_039=src\TCPIP Stack\TCP.h
-file_040=src\TCPIP Stack\DynDNS.h
-file_041=src\TCPIP Stack\ICMP.h
-file_042=src\p33FJ128GP802.gld
+file_019=src\DSP Library\fft.s
+file_020=src\DSP Library\bitrev.s
+file_021=src\DSP Library\inittwid.c
+file_022=src\DSP Library\cplxsqrmag.s
+file_023=src\DSP Library\flt2frct.c
+file_024=src\Voter.c
+file_025=src\HardwareProfile.h
+file_026=src\TCPIPConfig.h
+file_027=src\TCPIP Stack\StackTsk.h
+file_028=src\TCPIP Stack\UART.h
+file_029=src\TCPIP Stack\TCPIP.h
+file_030=src\TCPIP Stack\ARP.h
+file_031=src\TCPIP Stack\Delay.h
+file_032=src\TCPIP Stack\DHCP.h
+file_033=src\TCPIP Stack\DNS.h
+file_034=src\TCPIP Stack\ENC28J60.h
+file_035=src\TCPIP Stack\Helpers.h
+file_036=src\TCPIP Stack\IP.h
+file_037=src\TCPIP Stack\MAC.h
+file_038=src\TCPIP Stack\Random.h
+file_039=src\TCPIP Stack\Reboot.h
+file_040=src\TCPIP Stack\regdef.h
+file_041=src\TCPIP Stack\Tick.h
+file_042=src\TCPIP Stack\UDP.h
+file_043=src\TCPIP Stack\XEEPROM.h
+file_044=src\TCPIP Stack\Telnet.h
+file_045=src\TCPIP Stack\TCP.h
+file_046=src\TCPIP Stack\DynDNS.h
+file_047=src\TCPIP Stack\ICMP.h
+file_048=src\DSP Library\dspcommon.inc
+file_049=src\p33FJ128GP802.gld
 [SUITE_INFO]
 suite_guid={479DDE59-4D56-455E-855E-FFF59A3DB57E}
 suite_state=
@@ -208,21 +236,31 @@ TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}=-g -Wall -DIN_SPACE=0 -DIN_X_SPACE=0 -D
 TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}=-Map="$(BINDIR_)$(TARGETBASE).map" --report-mem -o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)"
 TS{509E5861-1E2A-483B-8B6B-CA8DB7F2DD78}=
 TS{7D9C6ECE-785D-44CB-BA22-17BF2E119622}001=-g
-TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}001=-g -Wall -DIN_SPACE=0 -DIN_X_SPACE=0 -DIN_P_SPACE=1 -DSIM_VAL=0 -DMPLAB_VAL=1 -DVALIDATION=0 -DDATA_TYPE=1 -msmall-code -mlarge-data -Os -funroll-loops -fomit-frame-pointer -mpa
+TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}001=-g -Wall -DIN_SPACE=0 -DIN_X_SPACE=0 -DIN_P_SPACE=1 -DSIM_VAL=0 -DMPLAB_VAL=1 -DVALIDATION=0 -DDATA_TYPE=1 -DDSPBEW=1 -mlarge-code -mlarge-data -Os -funroll-loops -fomit-frame-pointer -mpa
 TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}001=-o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)" -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem
 TS{509E5861-1E2A-483B-8B6B-CA8DB7F2DD78}001=
 TS{7D9C6ECE-785D-44CB-BA22-17BF2E119622}010=-g
-TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}010=-g -Wall -DIN_SPACE=0 -DIN_X_SPACE=0 -DIN_P_SPACE=1 -DSIM_VAL=0 -DMPLAB_VAL=1 -DVALIDATION=0 -DDATA_TYPE=1 -mlarge-code -mlarge-data -Os -funroll-loops -fomit-frame-pointer -mpa
+TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}010=-g -Wall -DIN_SPACE=0 -DIN_X_SPACE=0 -DIN_P_SPACE=1 -DSIM_VAL=0 -DMPLAB_VAL=1 -DVALIDATION=0 -DDATA_TYPE=1 -DDSPBEW=1 -mlarge-code -mlarge-data -Os -funroll-loops -fomit-frame-pointer -mpa
 TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}010=-o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)" -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem
 TS{509E5861-1E2A-483B-8B6B-CA8DB7F2DD78}010=
 TS{7D9C6ECE-785D-44CB-BA22-17BF2E119622}017=-g
 TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}017=-g -fno-short-double -Wall -mlarge-code -mlarge-data -O3 -funroll-loops -fomit-frame-pointer -mpa
 TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}017=-o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)" -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem
 TS{509E5861-1E2A-483B-8B6B-CA8DB7F2DD78}017=
+TS{7D9C6ECE-785D-44CB-BA22-17BF2E119622}021=-g
+TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}021=-g -Wall -DIN_SPACE=0 -DIN_X_SPACE=0 -DIN_P_SPACE=1 -DSIM_VAL=0 -DMPLAB_VAL=1 -DVALIDATION=0 -DDATA_TYPE=1 -DDSPBEW=1 -mlarge-code -mlarge-data -Os -funroll-loops -fomit-frame-pointer -mpa
+TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}021=-o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)" -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem
+TS{509E5861-1E2A-483B-8B6B-CA8DB7F2DD78}021=
+TS{7D9C6ECE-785D-44CB-BA22-17BF2E119622}023=-g
+TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}023=-g -Wall -DIN_SPACE=0 -DIN_X_SPACE=0 -DIN_P_SPACE=1 -DSIM_VAL=0 -DMPLAB_VAL=1 -DVALIDATION=0 -DDATA_TYPE=1 -DDSPBEW=1 -mlarge-code -mlarge-data -Os -funroll-loops -fomit-frame-pointer -mpa
+TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}023=-o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)" -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem
+TS{509E5861-1E2A-483B-8B6B-CA8DB7F2DD78}023=
 [ACTIVE_FILE_SETTINGS]
 TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}001_active=yes
 TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}010_active=yes
 TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}017_active=yes
+TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}021_active=yes
+TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}023_active=yes
 [INSTRUMENTED_TRACE]
 enable=0
 transport=0
@@ -230,5 +268,5 @@ format=0
 [CUSTOM_BUILD]
 Pre-Build=
 Pre-BuildEnabled=1
-Post-Build=XTEA Voter.hex
+Post-Build=XTEA VOTER.hex
 Post-BuildEnabled=1
