@@ -329,21 +329,21 @@ ROM char log_err_prefix[] = "ERR: ";
 ROM char log_warn_prefix[] = "WARN: ";
 
 // Simplified logging - just prefix with category, caller adds message
-#define LOG_GPS(fmt, ...)  do { log_prefix(); printf(log_gps_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
-#define LOG_NET(fmt, ...)  do { log_prefix(); printf(log_net_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
+#define LOG_GPS(fmt, ...)  do { if (!indisplay) { log_prefix(); printf(log_gps_prefix); printf(fmt, ##__VA_ARGS__); } } while(0)
+#define LOG_NET(fmt, ...)  do { if (!indisplay) { log_prefix(); printf(log_net_prefix); printf(fmt, ##__VA_ARGS__); } } while(0)
 /* Radio RX/TX logging uses debug bit 1 */
-#define LOG_RX(fmt, ...)   do { if (AppConfig.DebugLevel & 1) { log_prefix(); printf(log_rx_prefix); printf(fmt, ##__VA_ARGS__); } } while(0)
-#define LOG_TX(fmt, ...)   do { if (AppConfig.DebugLevel & 1) { log_prefix(); printf(log_tx_prefix); printf(fmt, ##__VA_ARGS__); } } while(0)
+#define LOG_RX(fmt, ...)   do { if ((!indisplay) && (AppConfig.DebugLevel & 1)) { log_prefix(); printf(log_rx_prefix); printf(fmt, ##__VA_ARGS__); } } while(0)
+#define LOG_TX(fmt, ...)   do { if ((!indisplay) && (AppConfig.DebugLevel & 1)) { log_prefix(); printf(log_tx_prefix); printf(fmt, ##__VA_ARGS__); } } while(0)
 /* STAT category for per-second statistics, enabled by debug bit 2
 	Note: messages should start with the short category like "TX STAT:" or "RX STAT:" so the final
 	output becomes: "[timestamp] TX STAT: ..." */
-#define LOG_STAT(fmt, ...)  do { if (AppConfig.DebugLevel & 2) { log_prefix(); printf(fmt, ##__VA_ARGS__); } } while(0)
-#define LOG_PKT(fmt, ...)  do { log_prefix(); printf(log_pkt_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
-#define LOG_SYS(fmt, ...)  do { log_prefix(); printf(log_sys_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
-#define LOG_ERR(fmt, ...)  do { log_prefix(); printf(log_err_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
-#define LOG_WARN(fmt, ...) do { log_prefix(); printf(log_warn_prefix); printf(fmt, ##__VA_ARGS__); } while(0)
+#define LOG_STAT(fmt, ...)  do { if ((!indisplay) && (AppConfig.DebugLevel & 2)) { log_prefix(); printf(fmt, ##__VA_ARGS__); } } while(0)
+#define LOG_PKT(fmt, ...)  do { if (!indisplay) { log_prefix(); printf(log_pkt_prefix); printf(fmt, ##__VA_ARGS__); } } while(0)
+#define LOG_SYS(fmt, ...)  do { if (!indisplay) { log_prefix(); printf(log_sys_prefix); printf(fmt, ##__VA_ARGS__); } } while(0)
+#define LOG_ERR(fmt, ...)  do { if (!indisplay) { log_prefix(); printf(log_err_prefix); printf(fmt, ##__VA_ARGS__); } } while(0)
+#define LOG_WARN(fmt, ...) do { if (!indisplay) { log_prefix(); printf(log_warn_prefix); printf(fmt, ##__VA_ARGS__); } } while(0)
 /* GPS Debug logging uses debug bit 32 */
-#define LOG_GPS_DEBUG(fmt, ...) do { if (AppConfig.DebugLevel & 32) { log_prefix(); printf("GPS-DEBUG: "); printf(fmt, ##__VA_ARGS__); } } while(0)
+#define LOG_GPS_DEBUG(fmt, ...) do { if ((!indisplay) && (AppConfig.DebugLevel & 32)) { log_prefix(); printf("GPS-DEBUG: "); printf(fmt, ##__VA_ARGS__); } } while(0)
 
 // ========== Reusable Log Message Strings ==========
 // Common state names for consistency
@@ -807,8 +807,7 @@ static ROM struct morse_bits mbits[] = {
     {4, 3}  /* Z */
 };
 
-static ROM char rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n",
-		paktc[] = "\nPress Enter to continue...\n";
+static ROM char paktc[] = "\nPress Enter to continue...\n";
 
 char dummy_loc;
 BYTE IOExpOutA,IOExpOutB,IODirB;
@@ -3582,7 +3581,13 @@ void secondary_processing_loop(void)
 	static DWORD rssi_sum_sec = 0;
 	static WORD  rssi_count_sec = 0;
 
-	long meas,thresh;
+	/* Deviation measurement averaging buffers (10Hz sampling) */
+	#define DEV_BUF_15S 150  // 15 seconds at 10Hz
+	static float dev_samples[DEV_BUF_15S];
+	static WORD dev_sample_idx = 0;
+	static WORD dev_samples_count = 0;
+
+	long meas;
 	WORD i,mypeak;
 	long x,y,z;
 	static BYTE dispcnt = 0;
@@ -4007,19 +4012,38 @@ void secondary_processing_loop(void)
 		else
 			meas = 0;
 
-		putchar('|');
-		for(i = 0; i < NCOLS; i++)
 		{
-			thresh = (meas * (long)NCOLS) / 16384;
+			// Deviation calculation calibrated at 3.0 KHz reference point:
+			// At 3.0 KHz actual deviation, firmware measures 2.73 KHz raw
+			// Calibration multiplier: 3.0 / 2.73 = 1.0989
+			// The bar display gives: raw_khz = (meas * 5.0) / 12231
+			// Calibrated formula: actual_khz = raw_khz * 1.0989
+			// Combined: actual_khz = (meas * 5.4945) / 12231 = meas / 2226.9
+			float deviation_khz = ((float)meas * 5.4945f) / 12231.0f;
+			float avg_15s = 0;
+			WORD count_15s;
+			WORD j, idx;
 			
-			if (i < thresh) putchar('=');
-			else if (i == thresh) putchar('>');
-			else putchar(' ');
-		}
+			// Store current sample in circular buffer
+			dev_samples[dev_sample_idx] = deviation_khz;
+			dev_sample_idx = (dev_sample_idx + 1) % DEV_BUF_15S;
+			if (dev_samples_count < DEV_BUF_15S) dev_samples_count++;
+			
+			// Calculate 15s average (most recent 150 samples at 10Hz)
+			count_15s = (dev_samples_count < 150) ? dev_samples_count : 150;
+			for (j = 0; j < count_15s; j++)
+			{
+				idx = (dev_sample_idx + DEV_BUF_15S - 1 - j) % DEV_BUF_15S;
+				avg_15s += dev_samples[idx];
+			}
+			if (count_15s > 0) avg_15s /= count_15s;
 
-		putchar('|');
-		putchar('\r');
-		fflush(stdout);
+			// Display on separate lines
+			printf("Instant: %.2f KHz\n15s Avg: %.2f KHz\r",
+			       (double)deviation_khz, (double)avg_15s);
+			fflush(stdout);
+		}
+		
 		amin = amax = 0;
 	}
 
@@ -4497,7 +4521,7 @@ static void IPMenu()
 		menu7[] = 
 		"14 - BootLoader IP Address (%d.%d.%d.%d) (%s)\n"
 		"15 - Ethernet Duplex (0=Half, 1=Full) (%d)\n",
-		entsel[] = "Select (1-14,99,c,x,q,r): ";
+		entsel[] = "Enter selection: ";
 
 		bootok = ((AppConfig.BootIPCheck == GetBootCS()));
 		printf(menu,AppConfig.DefaultIPAddr.v[0],AppConfig.DefaultIPAddr.v[1],
@@ -4767,7 +4791,7 @@ static void OffLineMenu()
 		"9  - Offline CTCSS Tone (%.1f) Hz\n"
 		"10 - Offline CTCSS Level (0-32767) (%d)\n"
 		"11 - Offline De-Emphasis Override (0=NORMAL, 1=OVERRIDE) (%d)\n",
-		entsel[] = "Select (1-9,99,c,x,q,r): ";
+		entsel[] = "Enter selection: ";
 
 		printf(menu,AppConfig.FailMode,AppConfig.CWSpeed,AppConfig.CWBeforeTime,AppConfig.CWAfterTime);
 		main_processing_loop();
@@ -4942,7 +4966,7 @@ static void SquelchMenu()
 		"1  - Squelch Pot (0=Hardware, 1=Software) (%d)\n"
 		"2  - Squelch Setting (1-1023) (%d)\n"
 		"3  - Hysteresis (1-100) (%d)\n",
-		entsel[] = "Select (1-3,99,x,q,r): ";
+		entsel[] = "Enter selection: ";
 
 		printf(menu,AppConfig.Sqpot,AppConfig.Squelch,AppConfig.Hysteresis);
 		main_processing_loop();
@@ -5069,7 +5093,7 @@ int main(void)
 		"19 - Simulcast Launch Delay (%u) (approx 200 ns, 5 = 1us, > 0 to ENA SC)\n"
 		"97 - RX Level,  "
 		"98 - Status,  ",
-		entsel[] = "Select (1-19,81-82,97-99,i,o,s,r,q): ";
+		entsel[] = "Enter selection: ";
 
 
 	static ROM char oprdata[] = "\n===== VOTER Client Status =====\n"
@@ -5702,18 +5726,12 @@ int main(void)
 				myfgets(cmdstr,sizeof(cmdstr) - 1);
 				continue;
 #endif
-			case 97: // Display RX Level Quasi-Graphically  
-			 	putchar(' ');
-
-				for(i = 0; i < NCOLS; i++) putchar(' ');
-
-				printf(rxvoicestr);
-				indisplay = 1;
-				myfgets(cmdstr,sizeof(cmdstr) - 1);
-				indisplay = 0;
-				continue;
-
-		case 98:
+		case 97: // Display RX Level Quasi-Graphically  
+			printf(" \rRX Level:\n");
+			indisplay = 1;
+			myfgets(cmdstr,sizeof(cmdstr) - 1);
+			indisplay = 0;
+			continue;		case 98:
 			{
 				ROM char *gps_state_str, *gps_proto_str;
 				int sql_level;
