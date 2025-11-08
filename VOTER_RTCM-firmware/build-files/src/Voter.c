@@ -4035,8 +4035,8 @@ void secondary_processing_loop(void)
 			}
 			if (count_15s > 0) avg_15s /= count_15s;
 
-			// Display on separate lines
-			printf("Instant: %.2f KHz\n15s Avg: %.2f KHz\r",
+			// Display on single line
+			printf("RX Level | Instant: %.2f KHz | 15s Avg: %.2f KHz\r",
 			       (double)deviation_khz, (double)avg_15s);
 			fflush(stdout);
 		}
