@@ -98,12 +98,10 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #endif
 
 /* Build date/time inserted by compiler via __DATE__ and __TIME__ */
-const char FIRMWARE_BUILD_DATE[] = __DATE__ " " __TIME__;
-
 #ifdef DSPBEW
-	char VERSION[] = FIRMWARE_VERSION " BEW (" __DATE__ " " __TIME__ ")";
+	const ROM char VERSION[] = FIRMWARE_VERSION " BEW (" __DATE__ " " __TIME__ ")";
 #else
-	char VERSION[] = FIRMWARE_VERSION " (" __DATE__ " " __TIME__ ")";
+	const ROM char VERSION[] = FIRMWARE_VERSION " (" __DATE__ " " __TIME__ ")";
 #endif
 
 #define M_PI       3.14159265358979323846
@@ -280,9 +278,9 @@ ROM char fmt_ip_newline[] = "%d.%d.%d.%d\n";
 ROM char str_save_eeprom[] = "99 - Save values to EEPROM\n";
 ROM char str_enter_selection[] = "Enter selection";
 ROM char str_exit_menu[] = "Exit";
-ROM char str_disconnect[] = "Disconnect remote console session";
-ROM char str_reboot[] = "Reboot system";
-ROM char str_back_main[] = "Back to main menu";
+ROM char str_disconnect[] = "Disconnect console";
+ROM char str_reboot[] = "Reboot";
+ROM char str_back_main[] = "Back to main";
 ROM char str_enter_newval[] = "Enter new value: ";
 ROM char str_menu_prompt_qrx[] = "\nq  - ";
 ROM char str_menu_prompt_r[] = ", r - ";
@@ -293,9 +291,13 @@ ROM char str_menu_close[] = ")\n";
 // Common error/status messages
 ROM char err_invalid_prefix[] = "Invalid entry: ";
 ROM char err_noentry_prefix[] = "No entry: ";
-ROM char err_not_changed[] = "Value not changed\n";
-ROM char msg_changed_success[] = "Value changed successfully\n";
-ROM char msg_error_prefix[] = "ERROR: ";
+ROM char err_not_changed[] = "Not changed\n";
+ROM char msg_changed_success[] = "Changed\n";
+ROM char msg_error_prefix[] = "ERR: ";
+
+// Consolidated error messages (saves ~60 bytes by using ROM prefix strings)
+ROM char err_invalid_notchanged[] = "Invalid entry\n";
+ROM char err_noentry_notchanged[] = "No entry\n";
 
 // Original strings (some now use consolidated strings)
 ROM char gpsmsg1[] = "Receiver active, awaiting satellite lock\n",
@@ -306,13 +308,12 @@ ROM char gpsmsg1[] = "Receiver active, awaiting satellite lock\n",
 		gpsmsg7[] = "Data timeout\n",
 		gpsmsg8[] = "PPS timeout\n",
 		gpsmsg9[] = "Signal acquired\n",
-		saved[] = "Configuration saved to EEPROM\n",
-		invalselection[] = "Invalid selection\n",
-		booting[] = "System Re-Booting...\n";
+		saved[] = "Saved to EEPROM\n",
+		invalselection[] = "Invalid\n",
+		booting[] = "Rebooting...\n";
  
-char 		newvalerror[] = "Invalid entry: value not changed\n", 
- 		newvalnotchanged[] = "No entry: value not changed\n",
- 	badmix[] = "Host rejected MIX mode request\n",
+// These remain in RAM as they may be modified at runtime in some contexts
+char 	badmix[] = "Host rejected MIX mode request\n",
  	hosttmomsg[] = "Host response timeout\n";
 
 // ========== Logging System - ROM-Efficient Implementation ==========
@@ -636,83 +637,12 @@ static inline unsigned long crc32_update(unsigned long crc, unsigned char data)
 	return c;
 }
 
-/* 1000.h: Generated from frequency 1000
-   by gentone.  16 samples  */
-static ROM short test_1000[] = {16,
-            0,  6269, 11585, 15136, 16384, 15136, 11585,  6269,
-            0, -6269, -11585, -15136, -16384, -15136, -11585, -6269,
-
-};
-/* 100.h: Generated from frequency 100
-   by gentone.  160 samples  */
-static ROM short test_100[] = {160,
-            0,   643,  1285,  1925,  2563,  3196,  3824,  4447,
-         5062,  5670,  6269,  6859,  7438,  8005,  8560,  9102,
-         9630, 10143, 10640, 11121, 11585, 12031, 12458, 12866,
-        13254, 13622, 13969, 14294, 14598, 14879, 15136, 15371,
-        15582, 15768, 15931, 16069, 16182, 16270, 16333, 16371,
-        16384, 16371, 16333, 16270, 16182, 16069, 15931, 15768,
-        15582, 15371, 15136, 14879, 14598, 14294, 13969, 13622,
-        13254, 12866, 12458, 12031, 11585, 11121, 10640, 10143,
-         9630,  9102,  8560,  8005,  7438,  6859,  6269,  5670,
-         5062,  4447,  3824,  3196,  2563,  1925,  1285,   643,
-            0,  -643, -1285, -1925, -2563, -3196, -3824, -4447,
-        -5062, -5670, -6269, -6859, -7438, -8005, -8560, -9102,
-        -9630, -10143, -10640, -11121, -11585, -12031, -12458, -12866,
-        -13254, -13622, -13969, -14294, -14598, -14879, -15136, -15371,
-        -15582, -15768, -15931, -16069, -16182, -16270, -16333, -16371,
-        -16384, -16371, -16333, -16270, -16182, -16069, -15931, -15768,
-        -15582, -15371, -15136, -14879, -14598, -14294, -13969, -13622,
-        -13254, -12866, -12458, -12031, -11585, -11121, -10640, -10143,
-        -9630, -9102, -8560, -8005, -7438, -6859, -6269, -5670,
-        -5062, -4447, -3824, -3196, -2563, -1925, -1285,  -643,
-
-};
-/* 2000.h: Generated from frequency 2000
-   by gentone.  8 samples  */
-static ROM short test_2000[] = {8,
-            0, 11585, 16384, 11585,     0, -11585, -16384, -11585,
-
-};
-/* 3200.h: Generated from frequency 3200
-   by gentone.  10 samples  */
-static ROM short test_3200[] = {10,
-            0, 15582,  9630, -9630, -15582,     0, 15582,  9630,
-        -9630, -15582,
-};
-/* 320.h: Generated from frequency 320
-   by gentone.  50 samples  */
-static ROM short test_320[] = {50,
-            0,  2053,  4074,  6031,  7893,  9630, 11215, 12624,
-        13833, 14824, 15582, 16093, 16351, 16351, 16093, 15582,
-        14824, 13833, 12624, 11215,  9630,  7893,  6031,  4074,
-         2053,     0, -2053, -4074, -6031, -7893, -9630, -11215,
-        -12624, -13833, -14824, -15582, -16093, -16351, -16351, -16093,
-        -15582, -14824, -13833, -12624, -11215, -9630, -7893, -6031,
-        -4074, -2053,
-};
-/* 500.h: Generated from frequency 500
-   by gentone.  32 samples  */
-static ROM short test_500[] = {32,
-            0,  3196,  6269,  9102, 11585, 13622, 15136, 16069,
-        16384, 16069, 15136, 13622, 11585,  9102,  6269,  3196,
-            0, -3196, -6269, -9102, -11585, -13622, -15136, -16069,
-        -16384, -16069, -15136, -13622, -11585, -9102, -6269, -3196,
-
-};
-/* 6000.h: Generated from frequency 6000
-   by gentone.  8 samples  */
-static ROM short test_6000[] = {8,
-            0, 11585, -16384, 11585,     0, -11585, 16384, -11585,
-
-};
-/* 7200.h: Generated from frequency 7200
-   by gentone.  20 samples  */
-static ROM short test_7200[] = {20,
-            0,  5062, -9630, 13254, -15582, 16384, -15582, 13254,
-        -9630,  5062,     0, -5062,  9630, -13254, 15582, -16384,
-        15582, -13254,  9630, -5062,
-};
+/* Test tone tables removed to save ROM space (~608 bytes saved)
+ * If test tones are needed, they can be generated on-the-fly using the
+ * digital milliwatt generator or sine wave synthesis algorithms.
+ * The removed tables were: test_100, test_320, test_500, test_1000,
+ * test_2000, test_3200, test_6000, test_7200
+ */
 
 static long crc32_bufs(unsigned char *buf, unsigned char *buf1)
 {
@@ -2166,37 +2096,11 @@ void SetTxTone(int freq)
 	}
 	else
 	{
+		/* Test tone generation disabled - tables removed to save ROM space
+		 * If test tones are needed in the future, implement on-the-fly generation
+		 */
 		DAC1CONbits.DACFDIV = 36;	// Divide by 37 for approx 16216.216 Samples/sec
-		switch(freq)
-		{
-		    case 100:
-				testp = (short *)test_100;
-				break;
-		    case 320:
-				testp = (short *)test_320;
-				break;
-		    case 500:
-				testp = (short *)test_500;
-				break;
-		    case 1000:
-				testp = (short *)test_1000;
-				break;
-		    case 2000:
-				testp = (short *)test_2000;
-				break;
-		    case 3200:
-				testp = (short *)test_3200;
-				break;
-		    case 6000:
-				testp = (short *)test_6000;
-				break;
-		    case 7200:
-				testp = (short *)test_7200;
-				break;
-			default:
-				testp = 0;
-				break;
-		}
+		testp = 0;  // No test tone tables available
 	}
 	ENABLE_INTERRUPTS();
 }
@@ -4570,7 +4474,7 @@ static void IPMenu()
 		BOOL bootok,ok;
 		int sel;
 
-		static ROMNOBEW char menu[] = "\nIP Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
+		static ROMNOBEW char menu[] = "\nIP Menu\n\n" 
 		"1  - (Static) IP Address (%d.%d.%d.%d)\n",
 		menu1[] = 
 		"2  - (Static) Netmask (%d.%d.%d.%d)\n",
@@ -4593,7 +4497,7 @@ static void IPMenu()
 		menu7[] = 
 		"14 - BootLoader IP Address (%d.%d.%d.%d) (%s)\n"
 		"15 - Ethernet Duplex (0=Half, 1=Full) (%d)\n",
-		entsel[] = "Enter Selection (1-14,99,c,x,q,r) : ";
+		entsel[] = "Select (1-14,99,c,x,q,r): ";
 
 		bootok = ((AppConfig.BootIPCheck == GetBootCS()));
 		printf(menu,AppConfig.DefaultIPAddr.v[0],AppConfig.DefaultIPAddr.v[1],
@@ -4649,7 +4553,7 @@ static void IPMenu()
 
 			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || (strlen(cmdstr) < 2))
 			{
-				printf(newvalnotchanged);
+				printf(err_noentry_notchanged);
 				continue;
 			}
 
@@ -4849,7 +4753,7 @@ static void OffLineMenu()
 		int sel;
 		float f;
 
-	static /*ROM*/ char menu[] = "\nOffLine Mode Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
+	static /*ROM*/ char menu[] = "\nOffLine Mode Menu\n\n" 
 		"1  - Offline Mode (0=NONE, 1=Simplex, 2=Simplex w/Trigger, 3=Repeater) (%d)\n"
 		"2  - CW Speed (%u) (1/8000 secs)\n"
 		"3  - Pre-CW Delay (%u) (1/8000 secs)\n"
@@ -4863,7 +4767,7 @@ static void OffLineMenu()
 		"9  - Offline CTCSS Tone (%.1f) Hz\n"
 		"10 - Offline CTCSS Level (0-32767) (%d)\n"
 		"11 - Offline De-Emphasis Override (0=NORMAL, 1=OVERRIDE) (%d)\n",
-		entsel[] = "Enter Selection (1-9,99,c,x,q,r) : ";
+		entsel[] = "Select (1-9,99,c,x,q,r): ";
 
 		printf(menu,AppConfig.FailMode,AppConfig.CWSpeed,AppConfig.CWBeforeTime,AppConfig.CWAfterTime);
 		main_processing_loop();
@@ -4896,7 +4800,7 @@ static void OffLineMenu()
 			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || 
 				((strlen(cmdstr) < 2) && ((sel < 5) || (sel > 6))))
 			{
-				printf(newvalnotchanged);
+				printf(err_noentry_notchanged);
 				continue;
 			}
 
@@ -5018,7 +4922,7 @@ static void OffLineMenu()
 		}
 		
 		if (ok) printf(msg_changed_success);
-		else printf(newvalerror);
+		else printf(err_invalid_notchanged);
 	}
 }/*****************************************************************************/
 //									     //
@@ -5034,11 +4938,11 @@ static void SquelchMenu()
 		BOOL ok;
 		int sel;
 
-	static /*ROM*/ char menu[] = "\nSquelch Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
+	static /*ROM*/ char menu[] = "\nSquelch Menu\n\n" 
 		"1  - Squelch Pot (0=Hardware, 1=Software) (%d)\n"
 		"2  - Squelch Setting (1-1023) (%d)\n"
 		"3  - Hysteresis (1-100) (%d)\n",
-		entsel[] = "Enter Selection (1-3,99,x,q,r) : ";
+		entsel[] = "Select (1-3,99,x,q,r): ";
 
 		printf(menu,AppConfig.Sqpot,AppConfig.Squelch,AppConfig.Hysteresis);
 		main_processing_loop();
@@ -5066,7 +4970,7 @@ static void SquelchMenu()
 			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || 
 				((strlen(cmdstr) < 2) && ((sel < 5) || (sel > 6))))
 			{
-				printf(newvalnotchanged);
+				printf(err_noentry_notchanged);
 				continue;
 			}
 
@@ -5112,7 +5016,7 @@ static void SquelchMenu()
 		}
 		
 		if (ok) printf(msg_changed_success);
-		else printf(newvalerror);
+		else printf(err_invalid_notchanged);
 	}
 }
 
@@ -5133,7 +5037,7 @@ int main(void)
 	static /*ROM*/ char defwritten[] = "\nDefault Values Written to EEPROM\n",
 			defdiode[] = "Diode Calibration Value Written to EEPROM\n";
 			
-	static /* ROM */ char menu1[] = "\nSelect the following values to View/Modify:\n\n" 
+	static /* ROM */ char menu1[] = "\n" 
 		"1  - Serial # (%d) (which is MAC ADDR %02X:%02X:%02X:%02X:%02X:%02X)\n",
 		menu2[] = 
 		"2  - VOTER Server Address (FQDN) (%s)\n"
@@ -5165,50 +5069,50 @@ int main(void)
 		"19 - Simulcast Launch Delay (%u) (approx 200 ns, 5 = 1us, > 0 to ENA SC)\n"
 		"97 - RX Level,  "
 		"98 - Status,  ",
-		entsel[] = "Enter Selection (1-19,81-82,97-99,i,o,s,r,q) : ";
+		entsel[] = "Select (1-19,81-82,97-99,i,o,s,r,q): ";
 
 
-	static ROM char oprdata[] = "\n============= VOTER Client Status =============\n"
-		"S/W Version:          %s\n"
-		"Serial Number:        %u\n"
-		"System Uptime:        %lu.%lu sec\n",
-		curtimeis[] = "Current UTC Time:     %s.%03lu\n\n",
+	static ROM char oprdata[] = "\n===== VOTER Client Status =====\n"
+		"Version:     %s\n"
+		"Serial:      %u\n"
+		"Uptime:      %lu.%lu sec\n",
+		curtimeis[] = "UTC Time:    %s.%03lu\n\n",
 	oprdata_net[] = 
-		"================= Network =================\n"
-		"MAC Address:          %02X:%02X:%02X:%02X:%02X:%02X\n"
-		"DHCP Enabled:         %s\n"
-		"IP Address:           ",
-	oprdata_net1[] = "Netmask:              ",
-	oprdata_net2[] = "Gateway:              ",
-	oprdata_net3[] = "Primary DNS:          ",
-	oprdata_net4[] = "Secondary DNS:        ",
-	oprdata_net5[] = "Local UDP Port:       %u\n\n",
+		"===== Network =====\n"
+		"MAC:         %02X:%02X:%02X:%02X:%02X:%02X\n"
+		"DHCP:        %s\n"
+		"IP:          ",
+	oprdata_net1[] = "Netmask:     ",
+	oprdata_net2[] = "Gateway:     ",
+	oprdata_net3[] = "DNS1:        ",
+	oprdata_net4[] = "DNS2:        ",
+	oprdata_net5[] = "UDP Port:    %u\n\n",
 	oprdata_gps[] = 
-		"=================== GPS ===================\n"
-		"GPS Protocol:         %s\n"
-		"GPS State:            %s\n"
-		"GPS Sync:             %s\n"
-		"GPS Satellites:       %d\n"
-		"PPS Bad/Wrong Polar:  %s\n\n",
-	oprdata_gps1[] = "GPS Time Offset:      %ld sec\n\n",
+		"===== GPS =====\n"
+		"Protocol:    %s\n"
+		"State:       %s\n"
+		"Sync:        %s\n"
+		"Satellites:  %d\n"
+		"PPS Error:   %s\n\n",
+	oprdata_gps1[] = "Time Offset: %ld sec\n\n",
 	oprdata_voter[] = 
-		"============ VOTER Host Server ============\n"
-		"Server Connected:     %s\n"
-		"VOTER Server IP:      ",
-	oprdata_voter1[] = "VOTER Server Port:    %u\n",
+		"===== VOTER Host =====\n"
+		"Connected:   %s\n"
+		"Server IP:   ",
+	oprdata_voter1[] = "Server Port: %u\n",
 	oprdata_radio[] = 
-		"================= Radio ===================\n"
-		"COR Active:           %s\n"
-		"External CTCSS:       %s\n"
-		"PTT Active:           %s\n"
-		"RSSI Level:           %d\n"
-		"Sample Rate:          %d sps\n"
-		"Peak Audio Level:     %u\n"
-		"TX Buffer Length:     %d ms\n"
-		"SQL Noise Gain:       %d\n"
-		"SQL Diode Cal:        %d\n"
-		"SQL Level:            %d\n"
-		"SQL Hysteresis:       %d\n\n";
+		"===== Radio =====\n"
+		"COR:         %s\n"
+		"Ext CTCSS:   %s\n"
+		"PTT:         %s\n"
+		"RSSI:        %d\n"
+		"Sample Rate: %d sps\n"
+		"Peak Audio:  %u\n"
+		"TX Buffer:   %d ms\n"
+		"SQL Gain:    %d\n"
+		"SQL Diode:   %d\n"
+		"SQL Level:   %d\n"
+		"SQL Hyst:    %d\n\n";
 
 
 	portasave = 0;	
@@ -5599,7 +5503,7 @@ int main(void)
 
 			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || ((strlen(cmdstr) < 2) && (sel != 15)))
 			{
-				printf(newvalnotchanged);
+				printf(err_noentry_notchanged);
 				continue;
 			}
 
@@ -5967,7 +5871,7 @@ int main(void)
 		}
 
 		if (ok) printf(msg_changed_success);
-		else printf(newvalerror);
+		else printf(err_invalid_notchanged);
 	}
 }
 
