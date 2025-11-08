@@ -103,9 +103,6 @@ const ROM char VERSION[] = FIRMWARE_VERSION " (" __DATE__ " " __TIME__ ")";
 
 #define M_PI       3.14159265358979323846
 
-/* Un-comment this to generate digital milliwatt level on output */
-/* #define DMWDIAG */
-
 #if defined(SMT_BOARD)
 
 	#define	CTCSSIN	_RA7	// Pin 13
@@ -117,10 +114,6 @@ const ROM char VERSION[] = FIRMWARE_VERSION " (" __DATE__ " " __TIME__ ")";
 	
 	#define	INITIALIZE 	JP8 	// Short JP8 on powerup to initialize EEPROM
 	#define	INITIALIZE_WVF 	JP10  	// Short on powerup while JP8 is shorted to also initialize Diode VF
-	
-	#define TESTBIT _LATB8
-
-
 
 #else
 	// Register addresses in the MCP23S17 IO Expander
@@ -154,9 +147,6 @@ const ROM char VERSION[] = FIRMWARE_VERSION " (" __DATE__ " " __TIME__ ")";
 
 	#define	INITIALIZE (IOExp_Read(IOEXP_GPIOA) & 0x40) 	// Short JP8 on powerup to initialize EEPROM
 	#define	INITIALIZE_WVF (IOExp_Read(IOEXP_GPIOB) & 1)  	// Short JP10 on powerup while JP8 is shorted to also initialize Diode VF
-	
-	#define TESTBIT _LATA1
-	#define	TESTBIT_TRIS TRISAbits.TRISA1
 
 #endif // smt
 
@@ -265,8 +255,6 @@ enum {GPS_STATE_IDLE,GPS_STATE_RECEIVED,GPS_STATE_VALID,GPS_STATE_SYNCED} ;
 enum {GPS_NMEA,GPS_TSIP} ;
 enum {CODEC_ULAW,CODEC_ADPCM} ;
 
-/* ========== Phase 1: Consolidated String Literals ========== */
-
 // Common IP address format strings
 ROM char fmt_ip[] = "%d.%d.%d.%d";
 ROM char fmt_ip_newline[] = "%d.%d.%d.%d\n";
@@ -313,7 +301,6 @@ ROM char gpsmsg1[] = "Receiver active, awaiting satellite lock\n",
 char 	badmix[] = "Host rejected MIX mode request\n",
  	hosttmomsg[] = "Host response timeout\n";
 
-// ========== Logging System - ROM-Efficient Implementation ==========
 // Use inline functions instead of macros to reduce code size
 ROM char log_gps_prefix[] = "GPS: ";
 ROM char log_net_prefix[] = "NET: ";
@@ -342,7 +329,6 @@ ROM char log_warn_prefix[] = "WARN: ";
 /* GPS Debug logging uses debug bit 32 */
 #define LOG_GPS_DEBUG(fmt, ...) do { if ((!indisplay) && (AppConfig.DebugLevel & 32)) { log_prefix(); printf("GPS-DEBUG: "); printf(fmt, ##__VA_ARGS__); } } while(0)
 
-// ========== Reusable Log Message Strings ==========
 // Common state names for consistency
 ROM char log_detected[] = "detected";
 ROM char log_lost[] = "lost";
@@ -352,7 +338,6 @@ ROM char log_asserted[] = "asserted";
 ROM char log_deasserted[] = "de-asserted";
 ROM char log_rising[] = "Rising";
 ROM char log_falling[] = "Falling";
-
 
 typedef struct {
 	DWORD vtime_sec;
@@ -380,11 +365,6 @@ char last_rxpacket_inbounds;
 #define	OPTION_FLAG_ADPCM 		16 	// Use ADPCM rather then ULAW (adpcm)
 #define	OPTION_FLAG_MIX 		32 	// Request "Mix" option to host (mixminux)
 
-#ifdef DMWDIAG
-	unsigned char ulaw_digital_milliwatt[8] = { 0x1e, 0x0b, 0x0b, 0x1e, 0x9e, 0x8b, 0x8b, 0x9e };
-	BYTE mwp;
-#endif
-
 // Declare AppConfig structure and some other supporting stack variables
 APP_CONFIG AppConfig;
 BYTE AN0String[8];
@@ -406,10 +386,6 @@ extern BOOL write_eeprom_cali;	// Flag to write calibration values back to EEPRO
 extern BYTE noise_gain;		// Noise gain sent to digital pot
 extern WORD caldiode;		// Diode voltage (used for temperature compensation)
 
-#ifdef DUMPENCREGS
-	extern void DumpETHReg(void);
-#endif
-
 void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL iscaled);
 void init_squelch(void);
 BOOL set_atten(BYTE val);
@@ -422,8 +398,6 @@ BOOL set_atten(BYTE val);
 WORD portasave;		// Get the PPS input from RA4(CN0) on interrupt
 BYTE inputs1;		// GPA I/O on IO Expander
 BYTE inputs2;		// GPB I/O on IO Expander
-BYTE aliveCntrMain; 	// Alive counter must be reset each couple of ms to prevent board reset. Set to 0xff to disable.
-BOOL aliveCntrDec;
 BYTE filling_buffer;
 WORD fillindex;
 BOOL filled;
@@ -474,7 +448,6 @@ DWORD gpstimer;
 WORD ppstimer;
 WORD gpsforcetimer;
 WORD attempttimer;
-
 DWORD lastrxtimer;
 WORD cwtimer;
 BYTE gpswarn;
@@ -580,8 +553,6 @@ WORD glasertimer;
 DWORD uptimer;
 WORD pingtimer;
 WORD secondtimer;
-
-
 long missed;
 WORD misstimer;
 WORD misstimer1;
@@ -607,11 +578,6 @@ static char last_gprmc_status = 0;  // Track GPRMC status ('A'=valid, 'V'=void)
 	DWORD fftresult;
 #endif
 
-#ifdef SILLY
-	BYTE silly = 0;
-	DWORD sillyval;
-#endif
-
 BYTE myDHCPBindCount;
 
 #if !defined(STACK_USE_DHCP)
@@ -633,13 +599,6 @@ static inline unsigned long crc32_update(unsigned long crc, unsigned char data)
 	}
 	return c;
 }
-
-/* Test tone tables removed to save ROM space (~608 bytes saved)
- * If test tones are needed, they can be generated on-the-fly using the
- * digital milliwatt generator or sine wave synthesis algorithms.
- * The removed tables were: test_100, test_320, test_500, test_1000,
- * test_2000, test_3200, test_6000, test_7200
- */
 
 static long crc32_bufs(unsigned char *buf, unsigned char *buf1)
 {
@@ -1559,17 +1518,12 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 
 		if (ptt)
 		{
-#ifdef	DMWDIAG
-			DAC1LDAT = ulawtabletx[ulaw_digital_milliwatt[mwp++]];
-			if (mwp > 7) mwp = 0;
-#else
 			c = txaudio[txdrainindex];
 
 			if (connected)
 				DAC1LDAT = ulawtabletx[c] + s;
 			else
 				DAC1LDAT = s;
-#endif // dmwdiag
 		} 
 		else DAC1LDAT = 0;
 
@@ -2092,11 +2046,8 @@ void SetTxTone(int freq)
 	}
 	else
 	{
-		/* Test tone generation disabled - tables removed to save ROM space
-		 * If test tones are needed in the future, implement on-the-fly generation
-		 */
 		DAC1CONbits.DACFDIV = 36;	// Divide by 37 for approx 16216.216 Samples/sec
-		testp = 0;  // No test tone tables available
+		testp = 0;
 	}
 	ENABLE_INTERRUPTS();
 }
@@ -2427,7 +2378,6 @@ void process_gps(void)
 
 	// Please see doubleify.c for explanation of this poo-poo
 	extern float doubleify(BYTE *p);
-
 
 	if (gps_state == GPS_STATE_IDLE) gps_time = 0;
 
@@ -2997,7 +2947,6 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 #endif
 		if (gpssync || (!USE_PPS))
 		{
-//TESTBIT ^= 1;
 			BOOL tosend = (connected && ((HasCOR() && HasCTCSS()) || (option_flags & OPTION_FLAG_SENDALWAYS)));
 
 			if (AppConfig.CORType == 1) rssiheld = rssi = 255;
@@ -3237,7 +3186,6 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 								index -= (FRAME_SIZE * 2);
 							else if (AppConfig.TxBufferLength >= 640)
 								index -= FRAME_SIZE;
-//printf("%ld %ld %ld\n",index,ntohl(audio_packet.vph.curtime.vtime_nsec),myhost_txseqno);
 						}
 						else
 						{
@@ -3247,7 +3195,6 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						}
 
 						index += AppConfig.TxBufferLength - (FRAME_SIZE * 2);
-//printf("%ld %u\n",index,AppConfig.TxBufferLength - (FRAME_SIZE * 2));
 						last_rxpacket_index = index;
 			
 			                        /* if in bounds */
@@ -3670,7 +3617,6 @@ void secondary_processing_loop(void)
 				service_squelch(adcothers[ADCDIODE],0x3ff - adcothers[ADCSQPOT],adcothers[ADCSQNOISE],!CAL,!WVF,(AppConfig.SqlNoiseGain) ? 1: 0);
 			}
 			sql2 ^= 1;
-//TESTBIT ^= 1;
 
 			qualcor = (HasCOR() && HasCTCSS());	
 #ifdef	DSPBEW
@@ -3941,9 +3887,6 @@ void secondary_processing_loop(void)
 		}
 
 		if (CAL && (AppConfig.CORType == 0) && (lastcor && (!HasCTCSS()))) ToggleLED(SQLED);
-#ifdef	SILLY
-	printf("%lu\n",sillyval);
-#endif	
 	}
 
 	/* Audio statistics: every 1 second while TXing or RXing, print stats when debug option 2 is enabled */
@@ -5097,7 +5040,8 @@ int main(void)
 		entsel[] = "Enter selection: ";
 
 
-	static ROM char oprdata[] = "\n===== VOTER Client Status =====\n"
+	static ROM char oprdata[] = "\nVOTER Client System - Created by Jim Dixon (WB6NIL)\n\n"
+		"===== VOTER Client Status =====\n"
 		"Version:     %s\n"
 		"Serial:      %u\n"
 		"Uptime:      %lu.%lu sec\n",
@@ -5719,14 +5663,7 @@ int main(void)
 					ok = 1;
 				}
 				break;
-#ifdef	DUMPENCREGS
-			case 96:
-				DumpETHReg();
- 				printf(paktc);
-				fflush(stdout);
-				myfgets(cmdstr,sizeof(cmdstr) - 1);
-				continue;
-#endif
+
 		case 97: // Display RX Level Quasi-Graphically  
 			printf(" \rRX Level:\n");
 			indisplay = 1;
