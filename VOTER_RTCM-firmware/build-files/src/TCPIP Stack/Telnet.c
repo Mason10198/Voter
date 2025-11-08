@@ -82,7 +82,7 @@ static ROM BYTE strUsername[]       = "Username: ";
 // DO Suppress Local Echo (stop telnet client from printing typed characters)
 static ROM BYTE strPassword[]       = "Password: \xff\xfd\x2d";
 static ROM BYTE strAccessDenied[]   = "\r\nAccess denied\r\n\r\n";
-static ROM BYTE strAuthenticated[]  = "\r\nLogged in successfully...\r\n\r\n";
+static ROM BYTE strAuthenticated[]  = "\rLogged in successfully...\r\n\r\n";
 
 									  
 extern BYTE AN0String[8];
