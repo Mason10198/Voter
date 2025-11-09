@@ -170,7 +170,13 @@ typedef struct __attribute__((__packed__))
 	WORD Squelch;
 	WORD Hysteresis;
 	BOOL Sqpot;
-	BYTE Zeros[553];
+	BYTE GPSResetMode;		// 0=Off, 1=Daily, 2=Weekly
+	BYTE GPSResetDay;		// Day: 0-6 for weekly (0=Sun)
+	BYTE GPSResetHour;		// Hour (0-23 UTC)
+	BYTE GPSResetMinute;	// Minute (0-59)
+	BYTE GPSAutoReset;		// 0=Off, 1=Auto reset on GPS errors
+	BYTE AuxOutMode;		// 0=Auto, 1=Force High, 2=Force Low
+	BYTE Zeros[547];
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION
