@@ -99,7 +99,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define DSPBEW
 
 /* Build date/time inserted by compiler via __DATE__ and __TIME__ */
-const ROM char VERSION[] = FIRMWARE_VERSION " (" __DATE__ " " __TIME__ ")";
+const ROM char VERSION[] = FIRMWARE_VERSION " (Compiled: " __DATE__ " " __TIME__ ")";
 
 #define M_PI       3.14159265358979323846
 
@@ -2333,12 +2333,33 @@ static char *logtime_p(VTIME *p)
 	return(str);
 }
 
+// UTC time formatter helper - formats time in YYYY/MM/DD HH:MM:SS.mmm format
+// This is used for log prefixes, menus, status displays, etc.
+static char *format_utc_time(VTIME *p)
+{
+	time_t	t;
+	static char str[50];
+	static ROM char notime[] = "<System Time Not Set>";
+	static ROM char utc_template[] = "%Y/%m/%d %H:%M:%S";
+
+	t = p->vtime_sec;
+	
+	if (t == 0) return((char *)notime);
+	
+	strftime(str, sizeof(str) - 1, (char *)utc_template, gmtime(&t));
+	sprintf(str + strlen(str), ".%03lu", p->vtime_nsec / 1000000L);
+	return(str);
+}
+
+// Convenience macro to get current UTC time string
+#define get_utc_time() format_utc_time(&system_time)
+
 // Lightweight timestamp prefixer for consistent console logs with minimal ROM cost
 static ROM char log_prefix_fmt[] = "[%s] ";
 static inline void log_prefix(void)
 {
-	// Prints: "[mm/dd/yyyy hh:mm:ss.mmm] " using existing logtime()
-	printf(log_prefix_fmt, logtime());
+	// Prints: "[YYYY/MM/DD HH:MM:SS.mmm] " using format_utc_time()
+	printf(log_prefix_fmt, get_utc_time());
 }
 
 
@@ -5098,9 +5119,10 @@ static void GPSResetMenu()
 		BOOL ok;
 		int sel;
 
-		printf("\nGPS Reset\n\n1 - Now\n2 - Schedule (0=Off, 1=Daily, 2=Wkly) (%u)\n"
+		printf("\nGPS Reset Menu - Current UTC: %s\n\n1 - Now\n2 - Schedule (0=Off, 1=Daily, 2=Wkly) (%u)\n"
 			"3 - Day (0=Sun...6=Sat) (%u)\n4 - Hour (%u)\n5 - Minute (%u)\n"
 			"6 - Auto on errors (%u)\n\n",
+			get_utc_time(),
 			AppConfig.GPSResetMode, AppConfig.GPSResetDay, AppConfig.GPSResetHour, 
 			AppConfig.GPSResetMinute, AppConfig.GPSAutoReset);
 		main_processing_loop();
@@ -5217,34 +5239,34 @@ int main(void)
 		"1  - Serial # (%d) (which is MAC ADDR %02X:%02X:%02X:%02X:%02X:%02X)\n",
 		menu2[] = 
 		"2  - VOTER Server Address (FQDN) (%s)\n"
-		"3  - VOTER Server Port (%u),  "
+		"3  - VOTER Server Port (%u)\n"
 		"4  - Local Port (Override) (%u)\n"
-		"5  - Client Password (%s),  "
+		"5  - Client Password (%s)\n"
 		"6  - Host Password (%s)\n",
 		menu3[] = 
-		"7  - Tx Buffer Length (%d)\n"
+		"7  - Tx Buffer Length (%d)\n\n"
 		"8  - GPS Protocol (0=NMEA, 1=TSIP) (%d)\n"
 		"81 - GPS Type (0=Normal, 1=Thunderbolt) (%d)\n"
 		"82 - GPS Time Offset (sec) (%lu)\n"
 		"9  - GPS Serial Polarity (0=Norm, 1=Inv) (%d)\n"
 		"10 - GPS PPS Polarity (0=Norm, 1=Inv, 2=NONE) (%d)\n",
 		menu4[] = 
-		"11 - GPS Baud Rate (%lu)\n"
+		"11 - GPS Baud Rate (%lu)\n\n"
 		"12 - Ext CTCSS (0=Ign, 1=Norm, 2=Inv) (%d)\n"
-		"13 - COR Type (0=Norm, 1=IGN, 2=NoRX) (%d)\n"
-		"14 - Debug Level (%lu)\n",
+		"13 - COR Type (0=Norm, 1=Ign, 2=NoRX) (%d)\n"
+		"14 - Debug Options (%lu)\n",
 		menu5[] = 
-		"15  - Alt Server Addr (FQDN) (%s)\n"
-		"16  - Alt Server Port (%u)\n"
+		"15 - Alt Server Addr (FQDN) (%s)\n"
+		"16 - Alt Server Port (%u)\n"
 #ifdef	DSPBEW
-		"17  - DSP/BEW Mode (%d)\n"
+		"17 - DSP/BEW Mode (%d)\n"
 #else
-		"17  - DSP/BEW NOT SUPPORTED\n"
+		"17 - DSP/BEW NOT SUPPORTED\n"
 #endif
 		"18 - Duplex3 (0=OFF, 1-255 Hang x0.1s) (%u)\n"
-		"19 - Simulcast Delay (x200ns, 5=1us, >0=ON) (%u)\n"
-		"97 - RX Level,  "
-		"98 - Status,  ",
+		"19 - Simulcast Delay (x200ns, 5=1us, >0=ON) (%u)\n\n"
+		"97 - RX Level\n"
+		"98 - Status\n",
 		entsel[] = "Enter selection: ";
 
 
@@ -5644,12 +5666,15 @@ int main(void)
 		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,
 			AppConfig.Duplex3,AppConfig.LaunchDelay);
 #endif
-		printf("99 - Save values to EEPROM\n");
+		printf("99 - Save values to EEPROM\n\n");
 #if !defined(SMT_BOARD)
-		printf("g - GPS Reset menu\n");
+		printf("g  - GPS Reset menu\n");
 #endif
-		printf("i - IP menu, o - Offline menu, s - Squelch menu\n"
-			"\nq  - Disconnect, r - Reboot\n\n");
+		printf("i  - IP menu\n"
+			"o  - Offline menu\n"
+			"s  - Squelch menu\n\n"
+			"q  - Disconnect\n"
+			"r  - Reboot\n\n");
 		
 		switch(menu_get_input(entsel))
 		{
