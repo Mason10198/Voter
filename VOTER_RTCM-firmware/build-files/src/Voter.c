@@ -440,6 +440,10 @@ BOOL host_ptt;
 DWORD gpstimer;
 WORD ppstimer;
 WORD gpsforcetimer;
+#if !defined(SMT_BOARD)
+DWORD gps_reset_timer;      // Timer for non-blocking GPS reset
+BYTE gps_reset_old_state;   // Saved IOExpOutB state during GPS reset
+#endif
 WORD attempttimer;
 DWORD lastrxtimer;
 WORD cwtimer;
@@ -3909,6 +3913,17 @@ void secondary_processing_loop(void)
 		if (CAL && (AppConfig.CORType == 0) && (lastcor && (!HasCTCSS()))) ToggleLED(SQLED);
 	}
 
+#if !defined(SMT_BOARD)
+	/* Check if GPS reset pulse needs to be completed (100ms elapsed) */
+	if (gps_reset_timer && (TickGet() - gps_reset_timer >= TICK_SECOND / 10ul))
+	{
+		/* Release GPB6 back to HIGH */
+		IOExpOutB = gps_reset_old_state | 0x40;
+		IOExp_Write(IOEXP_OLATB, IOExpOutB);
+		gps_reset_timer = 0;  /* Reset timer to indicate completion */
+	}
+#endif
+
 	/* Audio statistics: every 1 second while TXing or RXing, print stats when debug option 2 is enabled */
 	if ((AppConfig.DebugLevel & 2) && (TickGet() - last_aud_stats >= TICK_SECOND))
 	{
@@ -3977,8 +3992,8 @@ void secondary_processing_loop(void)
 			     (AppConfig.GPSResetMode == 2 && tm->tm_wday == AppConfig.GPSResetDay)))
 			{
 				last_reset_min = tm->tm_min;
-				KickGPS();
 				LOG_SYS("Sched GPS reset\n");
+				KickGPS();
 			}
 			/* Clear flag when we move to a different minute */
 			if (tm->tm_min != last_reset_min && last_reset_min != 0xFF)
@@ -5057,17 +5072,22 @@ static void SquelchMenu()
 /*****************************************************************************/
 #if !defined(SMT_BOARD)
 /*
- * KickGPS - Pulse GPB6 LOW for 10ms to reset GPS receiver
+ * KickGPS - Non-blocking GPS reset: Pulse GPB6 LOW for 100ms
+ * Sets up the reset pulse; completion handled in secondary_processing_loop
  */
 static void KickGPS(void)
 {
-	BYTE old = IOExpOutB;
-	LOG_SYS("Triggering GPS reset\n");
-	IOExpOutB &= ~0x40;  // Drive GPB6 LOW
-	IOExp_Write(IOEXP_OLATB, IOExpOutB);
-	DelayMs(10);
-	IOExpOutB = old | 0x40;  // Restore GPB6 HIGH
-	IOExp_Write(IOEXP_OLATB, IOExpOutB);
+	/* Only trigger if not already in progress */
+	if (gps_reset_timer == 0)
+	{
+		gps_reset_old_state = IOExpOutB;
+		LOG_SYS("Resetting GPS...\n");
+		/* Drive GPB6 LOW (active reset) */
+		IOExpOutB &= ~0x40;
+		IOExp_Write(IOEXP_OLATB, IOExpOutB);
+		/* Start the timer */
+		gps_reset_timer = TickGet();
+	}
 }
 
 static void GPSResetMenu()
@@ -5323,6 +5343,10 @@ int main(void)
 	ppstimer = 0;
 	gpstimer = 0;
 	gpsforcetimer = 0;
+#if !defined(SMT_BOARD)
+	gps_reset_timer = 0;
+	gps_reset_old_state = 0;
+#endif
 	attempttimer = 0;
 	ppswarn = 0;
 	gpswarn = 0;
