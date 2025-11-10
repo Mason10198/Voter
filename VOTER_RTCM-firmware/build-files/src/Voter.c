@@ -5119,8 +5119,20 @@ static void GPSResetMenu()
 		BOOL ok;
 		int sel;
 
-		printf("\nGPS Reset Menu - Current UTC: %s\n\n1 - Now\n2 - Schedule (0=Off, 1=Daily, 2=Wkly) (%u)\n"
-			"3 - Day (0=Sun...6=Sat) (%u)\n4 - Hour (%u)\n5 - Minute (%u)\n"
+		printf(
+			"\nGPS Reset Menu - Current UTC: %s\n\n"
+
+			"WARNING: Resetting GPS will disrupt system time/PPS,\n"
+			"and in some GPSDO enabled systems, the 9.6MHz dsPIC clock.\n"
+			"dsPIC clock disruption usually causes an immediate system reboot.\n"
+
+			"Proceed with caution!\n\n"
+
+			"1 - Now\n"
+			"2 - Schedule (0=Off, 1=Daily, 2=Wkly) (%u)\n"
+			"3 - Day (0=Sun...6=Sat) (%u)\n"
+			"4 - Hour (%u)\n"
+			"5 - Minute (%u)\n"
 			"6 - Auto on errors (%u)\n\n",
 			get_utc_time(),
 			AppConfig.GPSResetMode, AppConfig.GPSResetDay, AppConfig.GPSResetHour, 
