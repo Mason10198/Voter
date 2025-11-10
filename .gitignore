@@ -59,4 +59,3 @@ dkms.conf
 *.mcs
 
 #Other
-VOTER_RTCM-firmware/build-files/src/VOTER_3_00.c

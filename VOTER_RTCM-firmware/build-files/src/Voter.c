@@ -96,7 +96,9 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define FIRMWARE_VERSION "4.00"
 
 /* There's room! Force BEW mode unconditionally */
+#ifndef DSPBEW
 #define DSPBEW
+#endif
 
 /* Build date/time inserted by compiler via __DATE__ and __TIME__ */
 const ROM char VERSION[] = FIRMWARE_VERSION " (" __DATE__ " " __TIME__ ")";
@@ -382,6 +384,13 @@ extern WORD caldiode;		// Diode voltage (used for temperature compensation)
 void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL iscaled);
 void init_squelch(void);
 BOOL set_atten(BYTE val);
+
+// Forward declaration for SetConnStatus - defined later, but macro needed early for SMT boards
+#if defined(SMT_BOARD)
+#define SetConnStatus(val)  do { } while(0)  // No-op for SMT boards
+#else
+static inline void SetConnStatus(BOOL val);  // Forward declaration for non-SMT boards
+#endif
 
 /*****************************************************************************/
 //									     //
@@ -1967,7 +1976,7 @@ static inline void SetConnStatus(BOOL val)
 	if (IOExpOutB != oldout) IOExp_Write(IOEXP_OLATB,IOExpOutB);
 }
 #else
-#define SetConnStatus(val)  // No-op for SMT boards
+#define SetConnStatus(val)  do { } while(0)  // No-op for SMT boards
 #endif
 
 void SetAudioSrc(void)

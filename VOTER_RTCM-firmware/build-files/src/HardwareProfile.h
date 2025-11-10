@@ -58,7 +58,9 @@
 extern char dummy_loc;
 
 #if defined __dsPIC33FJ128GP804__
+#ifndef SMT_BOARD
 #define SMT_BOARD
+#endif
 #endif
 
 
