@@ -99,7 +99,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define DSPBEW
 
 /* Build date/time inserted by compiler via __DATE__ and __TIME__ */
-const ROM char VERSION[] = FIRMWARE_VERSION " (Compiled: " __DATE__ " " __TIME__ ")";
+const ROM char VERSION[] = FIRMWARE_VERSION " (" __DATE__ " " __TIME__ ")";
 
 #define M_PI       3.14159265358979323846
 
@@ -5666,13 +5666,13 @@ int main(void)
 		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,
 			AppConfig.Duplex3,AppConfig.LaunchDelay);
 #endif
-		printf("99 - Save values to EEPROM\n\n");
+		printf("99 - Save Values to EEPROM\n\n");
 #if !defined(SMT_BOARD)
-		printf("g  - GPS Reset menu\n");
+		printf("g  - GPS Reset Menu\n");
 #endif
-		printf("i  - IP menu\n"
-			"o  - Offline menu\n"
-			"s  - Squelch menu\n\n"
+		printf("i  - IP Menu\n"
+			"o  - Offline Menu\n"
+			"s  - Squelch Menu\n\n"
 			"q  - Disconnect\n"
 			"r  - Reboot\n\n");
 		
