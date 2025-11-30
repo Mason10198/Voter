@@ -361,10 +361,6 @@ APP_CONFIG AppConfig;
 BYTE AN0String[8];
 void SaveAppConfig(void);
 
-#if !defined(SMT_BOARD)
-static void KickGPS(void);
-#endif
-
 /*****************************************************************************/
 //									     //
 // 	Private helper functions					     //
@@ -449,10 +445,6 @@ BOOL host_ptt;
 DWORD gpstimer;
 WORD ppstimer;
 WORD gpsforcetimer;
-#if !defined(SMT_BOARD)
-DWORD gps_reset_timer;      // Timer for non-blocking GPS reset
-BYTE gps_reset_old_state;   // Saved IOExpOutB state during GPS reset
-#endif
 WORD attempttimer;
 DWORD lastrxtimer;
 WORD cwtimer;
@@ -3614,9 +3606,6 @@ void secondary_processing_loop(void)
 			LOG_GPS("%s", gpsmsg6);
 			gps_state = GPS_STATE_IDLE;
 			last_gps_state_logged = GPS_STATE_IDLE;
-#if !defined(SMT_BOARD)
-			if (AppConfig.GPSAutoReset) KickGPS();
-#endif
 			if (USE_PPS)
 			{
 				connected = 0;
@@ -3644,9 +3633,6 @@ void secondary_processing_loop(void)
 			gps_state = GPS_STATE_IDLE;
 			last_gps_state_logged = GPS_STATE_IDLE;
 			last_gotpps_logged = 0;
-#if !defined(SMT_BOARD)
-			if (AppConfig.GPSAutoReset) KickGPS();
-#endif
 			connected = 0;
 			SetConnStatus(0);
 			resp_digest = 0;
@@ -3943,17 +3929,6 @@ void secondary_processing_loop(void)
 		if (CAL && (AppConfig.CORType == 0) && (lastcor && (!HasCTCSS()))) ToggleLED(SQLED);
 	}
 
-#if !defined(SMT_BOARD)
-	/* Check if GPS reset pulse needs to be completed (100ms elapsed) */
-	if (gps_reset_timer && (TickGet() - gps_reset_timer >= TICK_SECOND / 10ul))
-	{
-		/* Release GPB6 back to HIGH */
-		IOExpOutB = gps_reset_old_state | 0x40;
-		IOExp_Write(IOEXP_OLATB, IOExpOutB);
-		gps_reset_timer = 0;  /* Reset timer to indicate completion */
-	}
-#endif
-
 	/* Audio statistics: every 1 second while TXing or RXing, print stats when debug option 2 is enabled */
 	if ((AppConfig.DebugLevel & 2) && (TickGet() - last_aud_stats >= TICK_SECOND))
 	{
@@ -4004,35 +3979,6 @@ void secondary_processing_loop(void)
 		rssi_sum_sec = 0;
 		rssi_count_sec = 0;
 	}
-
-#if !defined(SMT_BOARD)
-	/* GPS Reset Scheduler - fire at second :00 of target minute */
-	{
-		static BYTE last_reset_min = 0xFF;  // Track last minute we fired to prevent re-trigger
-		if ((AppConfig.GPSResetMode > 0) && (system_time.vtime_sec > 0))
-		{
-			struct tm *tm = gmtime((time_t *)&system_time.vtime_sec);
-			
-			/* Fire at :00 seconds of target hour:minute (and day if weekly) */
-			if (tm->tm_sec == 0 && 
-			    tm->tm_hour == AppConfig.GPSResetHour && 
-			    tm->tm_min == AppConfig.GPSResetMinute &&
-			    tm->tm_min != last_reset_min &&
-			    ((AppConfig.GPSResetMode == 1) || 
-			     (AppConfig.GPSResetMode == 2 && tm->tm_wday == AppConfig.GPSResetDay)))
-			{
-				last_reset_min = tm->tm_min;
-				LOG_SYS("Sched GPS reset\n");
-				KickGPS();
-			}
-			/* Clear flag when we move to a different minute */
-			if (tm->tm_min != last_reset_min && last_reset_min != 0xFF)
-			{
-				last_reset_min = 0xFF;
-			}
-		}
-	}
-#endif
 
 	if ((!indipsw) && (!indisplay) && (!leddiag)) tdisp = 0;
 
@@ -5097,147 +5043,6 @@ static void SquelchMenu()
 
 /*****************************************************************************/
 //									     //
-//		GPS Reset Functions					     //
-//									     //
-/*****************************************************************************/
-#if !defined(SMT_BOARD)
-/*
- * KickGPS - Non-blocking GPS reset: Pulse GPB6 LOW for 100ms
- * Sets up the reset pulse; completion handled in secondary_processing_loop
- */
-static void KickGPS(void)
-{
-	/* Only trigger if not already in progress */
-	if (gps_reset_timer == 0)
-	{
-		gps_reset_old_state = IOExpOutB;
-		LOG_SYS("Resetting GPS...\n");
-		/* Drive GPB6 LOW (active reset) */
-		IOExpOutB &= ~0x40;
-		IOExp_Write(IOEXP_OLATB, IOExpOutB);
-		/* Start the timer */
-		gps_reset_timer = TickGet();
-	}
-}
-
-static void GPSResetMenu()
-{
-	while(1) 
-	{
-		unsigned int i1;
-		BOOL ok;
-		int sel;
-
-		printf(
-			"\nGPS Reset Menu - Current UTC: %s\n\n"
-
-			"WARNING: Resetting GPS will disrupt system time/PPS,\n"
-			"and in some GPSDO enabled systems, the 9.6MHz dsPIC clock.\n"
-			"dsPIC clock disruption usually causes an immediate system reboot.\n"
-
-			"Proceed with caution!\n\n"
-
-			"1 - Now\n"
-			"2 - Schedule (0=Off, 1=Daily, 2=Wkly) (%u)\n"
-			"3 - Day (0=Sun...6=Sat) (%u)\n"
-			"4 - Hour (%u)\n"
-			"5 - Minute (%u)\n"
-			"6 - Auto on errors (%u)\n\n",
-			get_utc_time(),
-			AppConfig.GPSResetMode, AppConfig.GPSResetDay, AppConfig.GPSResetHour, 
-			AppConfig.GPSResetMinute, AppConfig.GPSAutoReset);
-		main_processing_loop();
-		menu_print_footer("GPS Reset");
-		
-		switch(menu_get_input("Enter Selection: "))
-		{
-			case 0: continue;
-			case 1: continue;
-			case 2: continue;
-			case 3: return;
-		}
-
-		sel = atoi(cmdstr);
-
-		if (sel == 1)
-		{
-			KickGPS();
-			printf("Sent\n");
-			continue;
-		}
-
-		if (sel >= 2 && sel <= 6)
-		{
-			printf(str_enter_newval);
-			if (aborted || !myfgets(cmdstr,sizeof(cmdstr)-1) || strlen(cmdstr) < 2)
-			{
-				printf(err_noentry_notchanged);
-				continue;
-			}
-		}
-
-		ok = 0;
-
-		switch(sel)
-		{
-			case 2:
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2))
-				{
-					AppConfig.GPSResetMode = i1;
-					ok = 1;
-				}
-				break;
-
-			case 3:
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 6))
-				{
-					AppConfig.GPSResetDay = i1;
-					ok = 1;
-				}
-				break;
-
-			case 4:
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 23))
-				{
-					AppConfig.GPSResetHour = i1;
-					ok = 1;
-				}
-				break;
-
-			case 5:
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 59))
-				{
-					AppConfig.GPSResetMinute = i1;
-					ok = 1;
-				}
-				break;
-
-			case 6:
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1))
-				{
-					AppConfig.GPSAutoReset = i1;
-					ok = 1;
-				}
-				break;
-
-			case 99:
-				SaveAppConfig();
-				LOG_SYS("%s", saved);
-				continue;
-
-			default:
-				printf(invalselection);
-				continue;
-		}
-		
-		if (ok) printf(msg_changed_success);
-		else printf(err_invalid_notchanged);
-	}
-}
-#endif
-
-/*****************************************************************************/
-//									     //
 //	MAIN Subroutine							     //
 //									     //
 /*****************************************************************************/
@@ -5386,10 +5191,6 @@ int main(void)
 	ppstimer = 0;
 	gpstimer = 0;
 	gpsforcetimer = 0;
-#if !defined(SMT_BOARD)
-	gps_reset_timer = 0;
-	gps_reset_old_state = 0;
-#endif
 	attempttimer = 0;
 	ppswarn = 0;
 	gpswarn = 0;
@@ -5688,9 +5489,6 @@ int main(void)
 			AppConfig.Duplex3,AppConfig.LaunchDelay);
 #endif
 		printf("99 - Save Values to EEPROM\n\n");
-#if !defined(SMT_BOARD)
-		printf("g  - GPS Reset Menu\n");
-#endif
 		printf("i  - IP Menu\n"
 			"o  - Offline Menu\n"
 			"s  - Squelch Menu\n\n"
@@ -5721,14 +5519,6 @@ int main(void)
 			SquelchMenu();
 			continue;
 		}
-
-#if !defined(SMT_BOARD)
-		if ((strchr(cmdstr,'G')) || strchr(cmdstr,'g'))
-		{
-			GPSResetMenu();
-			continue;
-		}
-#endif
 		
 		sel = atoi(cmdstr);
 #ifdef	DSPBEW
