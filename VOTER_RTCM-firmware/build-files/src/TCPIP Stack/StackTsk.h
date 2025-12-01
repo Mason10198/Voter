@@ -175,7 +175,8 @@ typedef struct __attribute__((__packed__))
 	BYTE RebootDay;
 	BYTE RebootHour;
 	BYTE RebootMinute;
-	BYTE Zeros[548];
+	WORD RebootColdPowerMins;
+	BYTE Zeros[546];
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION

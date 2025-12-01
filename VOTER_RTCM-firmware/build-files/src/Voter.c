@@ -555,6 +555,8 @@ long missed;
 WORD misstimer;
 WORD misstimer1;
 WORD saved_rcon;
+DWORD cold_power_reboot_target;
+BOOL cold_power_reboot_active;
 
 #ifdef DSPBEW
 	DWORD fftresult;
@@ -838,6 +840,9 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 	long valpred;		/* Predicted output value */
 	int adpcm_index;
 	BYTE *cp;
+
+	static BOOL pps_polarity_warning_shown = 0;
+	static BOOL last_gotpps_logged = 0;
 
 	CORCONbits.PSV = 1;
 	// If PPS signal is asserted
@@ -2366,6 +2371,8 @@ void process_gps(void)
 	static ROM char 	gpgga[] = "$GPGGA",
 				gpgsv[] = "$GPGSV", 
 				gprmc[] = "$GPRMC";
+	static BYTE last_gps_state_logged = GPS_STATE_IDLE;
+	static char last_gprmc_status = 0;
 
 	// Please see doubleify.c for explanation of this poo-poo
 	extern float doubleify(BYTE *p);
@@ -3495,6 +3502,12 @@ void secondary_processing_loop(void)
 	static DWORD last_aud_stats = 0;
 	static DWORD rssi_sum_sec = 0;
 	static WORD  rssi_count_sec = 0;
+	static BYTE last_gps_state_logged = GPS_STATE_IDLE;
+	static BOOL last_gotpps_logged = 0;
+	static BOOL last_cor_logged = 0;
+	static BOOL last_ctcss_logged = 0;
+	static BOOL last_ptt_logged = 0;
+	static BOOL last_connected_logged = 0;
 
 	/* Deviation measurement averaging buffers (10Hz sampling) */
 	#define DEV_BUF_15S 150  // 15 seconds at 10Hz
@@ -3908,6 +3921,13 @@ void secondary_processing_loop(void)
 		/* reset accumulators */
 		rssi_sum_sec = 0;
 		rssi_count_sec = 0;
+	}
+
+	/* Cold Power-Up Auto Reboot - trigger N minutes after cold boot */
+	if (cold_power_reboot_active && uptimer >= cold_power_reboot_target)
+	{
+		LOG_SYS("Cold pwr reboot\n");
+		RTCM_Reset();
 	}
 
 	/* Auto Reboot Scheduler - fire at second :00 of target minute */
@@ -4406,7 +4426,17 @@ static int menu_get_input(ROM char *prompt)
 {
 	printf("99 - Save to EEPROM\n"
 		"x  - Exit %s\n"
-		"\nq  - Disconnect, r - Reboot\n\n", menu_name);
+		"\nq  - Disconnect, r - Reboot\n", menu_name);
+	
+	// Display cold power reboot timer warning if active
+	if (cold_power_reboot_active && uptimer < cold_power_reboot_target)
+	{
+		DWORD remaining = (cold_power_reboot_target - uptimer) / 10;  // convert to seconds
+		printf("\n*** Cold pwr reboot in %lu:%02lu ***\n", 
+			remaining / 60, remaining % 60);
+	}
+	
+	printf("\n");
 	fflush(stdout);
 }
 /*****************************************************************************/
@@ -5010,10 +5040,11 @@ static void AutoRebootMenu()
 			"1 - Sched (0=Off,1=Daily,2=Wkly) (%u)\n"
 			"2 - Day (0=Sun...6=Sat) (%u)\n"
 			"3 - Hour (%u)\n"
-			"4 - Min (%u)\n\n",
+			"4 - Min (%u)\n"
+			"5 - Cold Power Reboot Mins (0=Off) (%u)\n\n",
 			get_utc_time(),
 			AppConfig.RebootMode, AppConfig.RebootDay, AppConfig.RebootHour, 
-			AppConfig.RebootMinute);
+			AppConfig.RebootMinute, AppConfig.RebootColdPowerMins);
 		main_processing_loop();
 		menu_print_footer("Auto Reboot");
 		
@@ -5027,7 +5058,7 @@ static void AutoRebootMenu()
 
 		sel = atoi(cmdstr);
 
-		if (sel >= 1 && sel <= 4)
+		if (sel >= 1 && sel <= 5)
 		{
 			printf(str_enter_newval);
 			if (aborted || !myfgets(cmdstr,sizeof(cmdstr)-1) || strlen(cmdstr) < 2)
@@ -5070,6 +5101,20 @@ static void AutoRebootMenu()
 				{
 					AppConfig.RebootMinute = i1;
 					ok = 1;
+				}
+				break;
+
+			case 5:
+				if (sscanf(cmdstr,"%u",&i1) == 1)
+				{
+					AppConfig.RebootColdPowerMins = i1;
+					ok = 1;
+					// Cancel active timer if changed to 0
+					if (i1 == 0)
+					{
+						cold_power_reboot_active = FALSE;
+						cold_power_reboot_target = 0;
+					}
 				}
 				break;
 
@@ -5333,6 +5378,8 @@ int main(void)
 	memset(&last_rxpacket_sys_time,0,sizeof(last_rxpacket_sys_time));
 	last_rxpacket_index = 0;
 	last_rxpacket_inbounds = 0;
+	cold_power_reboot_target = 0;
+	cold_power_reboot_active = FALSE;
 
 	// Initialize application specific hardware
 	InitializeBoard();
@@ -5503,6 +5550,14 @@ int main(void)
 	if (!AppConfig.Flags.bIsDHCPReallyEnabled)
 		AppConfig.Flags.bInConfigMode = FALSE;
 
+	// Check for cold power-up (POR or BOR) and start auto-reboot timer if enabled
+	if (AppConfig.RebootColdPowerMins > 0 && (saved_rcon & 0x0003))
+	{
+		cold_power_reboot_active = TRUE;
+		cold_power_reboot_target = (DWORD)AppConfig.RebootColdPowerMins * 600;  // uptimer ticks at 10Hz
+		LOG_SYS("Cold pwr reboot in %um\n", AppConfig.RebootColdPowerMins);
+	}
+
 	while(1) 
 	{
 		char ok;
@@ -5542,7 +5597,17 @@ int main(void)
 			"s  - Squelch Menu\n"
 			"a  - Auto Reboot Menu\n\n"
 			"q  - Disconnect\n"
-			"r  - Reboot\n\n");
+			"r  - Reboot\n");
+		
+		// Display cold power reboot timer warning if active
+		if (cold_power_reboot_active && uptimer < cold_power_reboot_target)
+		{
+			DWORD remaining = (cold_power_reboot_target - uptimer) / 10;  // convert to seconds
+			printf("\n*** Cold pwr reboot in %lu:%02lu ***\n", 
+				remaining / 60, remaining % 60);
+		}
+		
+		printf("\n");
 		
 		switch(menu_get_input(entsel))
 		{
