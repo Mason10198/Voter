@@ -1952,7 +1952,7 @@ static inline void SetConnStatus(BOOL val)
 	BYTE oldout;
 	BOOL actual_val;
 	
-	// Check AuxOutMode: 0=Auto, 1=Force High, 2=Force Low
+	// Check AuxOutMode: 0=ConnStatus, 1=Force High, 2=Force Low
 	if (AppConfig.AuxOutMode == 1)
 		actual_val = 1;  // Force High
 	else if (AppConfig.AuxOutMode == 2)
@@ -4478,15 +4478,13 @@ static int menu_get_input(ROM char *prompt)
 }
 
 /* Print common menu footer with navigation options */
-static void menu_print_footer(ROM char *menu_name)
+	static void menu_print_footer(ROM char *menu_name)
 {
-	printf("99 - Save values to EEPROM\n"
-		"x  - Exit %s (Back to main)\n"
-		"\nq  - Disconnect console, r - Reboot\n\n", menu_name);
+	printf("99 - Save to EEPROM\n"
+		"x  - Exit %s\n"
+		"\nq  - Disconnect, r - Reboot\n\n", menu_name);
 	fflush(stdout);
 }
-
-
 /*****************************************************************************/
 //									     //
 //		IP Menu							     //
@@ -4501,28 +4499,28 @@ static void IPMenu()
 		int sel;
 
 		static ROMNOBEW char menu[] = "\nIP Menu\n\n" 
-		"1  - IP Addr (%d.%d.%d.%d)\n",
+		"1  - IP (%d.%d.%d.%d)\n",
 		menu1[] = 
-		"2  - Netmask (%d.%d.%d.%d)\n",
+		"2  - Mask (%d.%d.%d.%d)\n",
 		menu2[] = 
-		"3  - Gateway (%d.%d.%d.%d)\n",
+		"3  - GW (%d.%d.%d.%d)\n",
 		menu3[] = 
 		"4  - DNS1 (%d.%d.%d.%d)\n",
 		menu4[] = 
 		"5  - DNS2 (%d.%d.%d.%d)\n",
 		menu5[] = 
 		"6  - DHCP (%d)\n"
-		"7  - Telnet Port (%d)\n"
-		"8  - Telnet User (%s)\n"
-		"9  - Telnet Pass (%s)\n"
+		"7  - Port (%d)\n"
+		"8  - User (%s)\n"
+		"9  - Pass (%s)\n"
 		"10 - DynDNS (%d)\n",
 		menu6[] = 
-		"11 - DynDNS User (%s)\n"
-		"12 - DynDNS Pass (%s)\n"
-		"13 - DynDNS Host (%s)\n",
+		"11 - DynUser (%s)\n"
+		"12 - DynPass (%s)\n"
+		"13 - DynHost (%s)\n",
 		menu7[] = 
-		"14 - Bootloader IP (%d.%d.%d.%d) (%s)\n"
-		"15 - Eth Duplex (0=Half, 1=Full) (%d)\n",
+		"14 - BootIP (%d.%d.%d.%d) (%s)\n"
+		"15 - EthDpx (0=Half,1=Full) (%d)\n",
 		entsel[] = "Enter selection: ";
 
 		bootok = ((AppConfig.BootIPCheck == GetBootCS()));
@@ -4557,7 +4555,7 @@ static void IPMenu()
 			AppConfig.BootIPAddr.v[3],(bootok) ? "OK" : "BAD",AppConfig.EthFullDuplex);
 		main_processing_loop();
 		secondary_processing_loop();
-		menu_print_footer("IP Parameters Menu");
+		menu_print_footer("IP Menu");
 		
 		switch(menu_get_input(entsel))
 		{
@@ -4779,22 +4777,22 @@ static void OffLineMenu()
 		int sel;
 		float f;
 
-	static /*ROM*/ char menu[] = "\nOffLine Menu\n\n" 
-		"1  - Mode (0=NONE, 1=Spx, 2=Spx+Trig, 3=Rpt) (%d)\n"
-		"2  - CW Speed (x1/8000s) (%u)\n"
-		"3  - Pre-CW Delay (x1/8000s) (%u)\n"
-		"4  - Post-CW Delay (x1/8000s) (%u)\n",
+	static /*ROM*/ char menu[] = "\nOffline Menu\n\n" 
+		"1  - Mode (0=OFF,1=Spx,2=Spx+Trg,3=Rpt) (%d)\n"
+		"2  - CW Speed x1/8000s (%u)\n"
+		"3  - PreCW x1/8000s (%u)\n"
+		"4  - PostCW x1/8000s (%u)\n",
 		menu1[] = 
-		"5  - CW Offline ID (%s)\n"
-		"6  - CW Online ID (%s)\n"
-		"7  - ID Period (x0.1s) (%u)\n"
-		"8  - Repeat Hang (x0.1s) (%u)\n",
+		"5  - CW OffID (%s)\n"
+		"6  - CW OnID (%s)\n"
+		"7  - ID Per x0.1s (%u)\n"
+		"8  - RptHang x0.1s (%u)\n",
 		menu1a[] = 
-		"9  - CTCSS Tone Hz (%.1f)\n"
-		"10 - CTCSS Level (%d)\n"
-		"11 - No Deemp (0=Norm, 1=Off) (%d)\n"
+		"9  - CTCSS Hz (%.1f)\n"
+		"10 - CTCSS Lev (%d)\n"
+		"11 - NoDeemp (0=Norm,1=Off) (%d)\n"
 #if !defined(SMT_BOARD)
-		"12 - Connection Status Output (0=Auto, 1=Hi, 2=Lo) (%d)\n"
+		"12 - AuxOut (0=ConnStatus,1=Hi,2=Lo) (%d)\n"
 #endif
 		,
 		entsel[] = "Enter selection: ";
@@ -4811,7 +4809,7 @@ static void OffLineMenu()
 		);
 		main_processing_loop();
 		secondary_processing_loop();
-		menu_print_footer("OffLine Mode Parameter Menu");
+		menu_print_footer("Offline Menu");
 		
 		switch(menu_get_input(entsel))
 		{
@@ -4987,15 +4985,15 @@ static void SquelchMenu()
 		int sel;
 
 	static /*ROM*/ char menu[] = "\nSquelch Menu\n\n" 
-		"1  - Pot (0=HW, 1=SW) (%d)\n"
-		"2  - Setting (1-1023) (%d)\n"
-		"3  - Hysteresis (1-100) (%d)\n",
+		"1  - Pot (0=HW,1=SW) (%d)\n"
+		"2  - Setting 1-1023 (%d)\n"
+		"3  - Hyst 1-100 (%d)\n",
 		entsel[] = "Enter selection: ";
 
 		printf(menu,AppConfig.Sqpot,AppConfig.Squelch,AppConfig.Hysteresis);
 		main_processing_loop();
 		secondary_processing_loop();
-		menu_print_footer("Squelch Parameter Menu");
+		menu_print_footer("Squelch Menu");
 		
 		switch(menu_get_input(entsel))
 		{
@@ -5083,12 +5081,12 @@ static void AutoRebootMenu()
 		int sel;
 
 		printf(
-			"\nAuto Reboot Menu - Current UTC: %s\n\n"
+			"\nAuto Reboot Menu - UTC: %s\n\n"
 
-			"1 - Schedule (0=Off, 1=Daily, 2=Wkly) (%u)\n"
+			"1 - Sched (0=Off,1=Daily,2=Wkly) (%u)\n"
 			"2 - Day (0=Sun...6=Sat) (%u)\n"
 			"3 - Hour (%u)\n"
-			"4 - Minute (%u)\n\n",
+			"4 - Min (%u)\n\n",
 			get_utc_time(),
 			AppConfig.RebootMode, AppConfig.RebootDay, AppConfig.RebootHour, 
 			AppConfig.RebootMinute);
@@ -5187,95 +5185,96 @@ int main(void)
 	RCON &= 0x3F20;  // Clear all reset status bits: TRAPR(15), IOPWR(14), EXTR(7), SWR(6), WDTO(4), SLEEP(3), IDLE(2), BOR(1), POR(0)
 	
 	static /* ROM */ char menu1[] = "\n" 
-		"1  - Serial # (%d) (which is MAC ADDR %02X:%02X:%02X:%02X:%02X:%02X)\n",
+		"1  - Serial# (%d) [MAC=%02X:%02X:%02X:%02X:%02X:%02X]\n",
 		menu2[] = 
-		"2  - VOTER Server Address (FQDN) (%s)\n"
-		"3  - VOTER Server Port (%u)\n"
-		"4  - Local Port (Override) (%u)\n"
-		"5  - Client Password (%s)\n"
-		"6  - Host Password (%s)\n",
+		"2  - Server FQDN (%s)\n"
+		"3  - Server Port (%u)\n"
+		"4  - Local Port (%u)\n"
+		"5  - Client Pass (%s)\n"
+		"6  - Host Pass (%s)\n",
 		menu3[] = 
-		"7  - Tx Buffer Length (%d)\n\n"
-		"8  - GPS Protocol (0=NMEA, 1=TSIP) (%d)\n"
-		"81 - GPS Type (0=Normal, 1=Thunderbolt) (%d)\n"
-		"82 - GPS Time Offset (sec) (%lu)\n"
-		"9  - GPS Serial Polarity (0=Norm, 1=Inv) (%d)\n"
-		"10 - GPS PPS Polarity (0=Norm, 1=Inv, 2=NONE) (%d)\n",
+		"7  - TxBuf Len (%d)\n\n"
+		"8  - GPS Proto (0=NMEA,1=TSIP) (%d)\n"
+		"81 - GPS Type (0=Norm,1=Tbolt) (%d)\n"
+		"82 - GPS TimeOfs (sec) (%lu)\n"
+		"9  - GPS SerPol (0=Norm,1=Inv) (%d)\n"
+		"10 - PPS Pol (0=Norm,1=Inv,2=OFF) (%d)\n",
 		menu4[] = 
-		"11 - GPS Baud Rate (%lu)\n\n"
-		"12 - Ext CTCSS (0=Ign, 1=Norm, 2=Inv) (%d)\n"
-		"13 - COR Type (0=Norm, 1=Ign, 2=NoRX) (%d)\n"
-		"14 - Debug Options (%lu)\n",
+		"11 - GPS Baud (%lu)\n\n"
+		"12 - ExtCTCSS (0=Ign,1=Norm,2=Inv) (%d)\n"
+		"13 - COR (0=Norm,1=Ign,2=NoRX) (%d)\n"
+		"14 - Debug Opts (%lu)\n",
 		menu5[] = 
-		"15 - Alt Server Addr (FQDN) (%s)\n"
-		"16 - Alt Server Port (%u)\n"
+		"15 - AltSvr FQDN (%s)\n"
+		"16 - AltSvr Port (%u)\n"
 #ifdef	DSPBEW
-		"17 - DSP/BEW Mode (%d)\n"
+		"17 - DSP/BEW (%d)\n"
 #else
-		"17 - DSP/BEW NOT SUPPORTED\n"
+		"17 - DSP/BEW N/A\n"
 #endif
-		"18 - Duplex3 (0=OFF, 1-255 Hang x0.1s) (%u)\n"
-		"19 - Simulcast Delay (x200ns, 5=1us, >0=ON) (%u)\n\n"
+		"18 - Duplex3 (0=OFF,1-255x0.1s) (%u)\n"
+		"19 - Launch Delay (x200ns,>0=ON) (%u)\n\n"
 		"97 - RX Level\n"
 		"98 - Status\n",
 		entsel[] = "Enter selection: ";
 
 
 	static ROM char oprdata[] = "\nVOTER Client Status\n\n"
-		"===== System =====\n"
-		"Version:     %s\n"
-		"Serial:      %u\n"
-		"Uptime:      %lu.%lu sec\n",
-		curtimeis[] = "UTC Time:    %s.%03lu\n",
-		startuptime[] = "Last Startup: %s\n\n",
+		"== System ==\n"
+		"Ver:    %s\n"
+		"Ser:    %u\n"
+		"Up:     %lu.%lu sec\n",
+		curtimeis[] = "UTC:    %s.%03lu\n",
+		startuptime[] = "Start:  %s\n\n",
 	oprdata_net[] = 
 		"== Network ==\n"
-		"MAC:     %02X:%02X:%02X:%02X:%02X:%02X\n"
-		"DHCP:    %s\n"
-		"IP:      %d.%d.%d.%d\n"
-		"Mask:    %d.%d.%d.%d\n"
-		"Gateway: %d.%d.%d.%d\n"
-		"DNS1:    %d.%d.%d.%d\n"
-		"DNS2:    %d.%d.%d.%d\n"
-		"Port:    %u\n\n",
+		"MAC:  %02X:%02X:%02X:%02X:%02X:%02X\n"
+		"DHCP: %s\n"
+		"IP:   %d.%d.%d.%d\n"
+		"Mask: %d.%d.%d.%d\n"
+		"GW:   %d.%d.%d.%d\n"
+		"DNS1: %d.%d.%d.%d\n"
+		"DNS2: %d.%d.%d.%d\n"
+		"Port: %u\n\n",
 	oprdata_gps[] = 
 		"== GPS ==\n"
-		"Protocol: %s\n"
-		"State:    %s\n"
-		"Sync:     %s\n"
-		"Sats:     %d\n"
-		"PPS Err:  %s\n\n",
-	oprdata_gps1[] = "Offset: %ld sec\n\n",
+		"Proto: %s\n"
+		"State: %s\n"
+		"Sync:  %s\n"
+		"Sats:  %d\n"
+		"PPSErr: %s\n\n",
+	oprdata_gps1[] = "Ofs: %ld sec\n\n",
 	oprdata_voter[] = 
-		"== VOTER Host ==\n"
-		"Conn:   %s\n"
-		"Srv IP: %d.%d.%d.%d\n"
-		"Port:   %u\n",
+		"== VOTER ==\n"
+		"Conn: %s\n"
+		"SvrIP: %d.%d.%d.%d\n"
+		"Port: %u\n",
 	oprdata_radio[] = 
 		"== Radio ==\n"
-		"COR:     %s\n"
-		"CTCSS:   %s\n"
-		"PTT:     %s\n"
-		"RSSI:    %d\n"
-		"Rate:    %d sps\n"
-		"Peak:    %u\n"
-		"TXBuf:   %d ms\n"
-		"SQL Gn:  %d\n"
-		"SQL Di:  %d\n"
-		"SQL Lv:  %d\n"
-		"SQL Hy:  %d\n\n",
+		"COR:   %s\n"
+		"CTCSS: %s\n"
+		"PTT:   %s\n"
+		"RSSI:  %d\n"
+		"Rate:  %d sps\n"
+		"Peak:  %u\n"
+		"TxBuf: %d ms\n"
+		"SqlGn: %d\n"
+		"SqlDi: %d\n"
+		"SqlLv: %d\n"
+		"SqlHy: %d\n\n",
 	oprdata_rcon[] =
-		"== RCON ==\n"
-		"Val: 0x%04X\n"
-		"TRAPR(15): %s\n"
-		"IOPWR(14): %s\n"
-		"EXTR (7):  %s\n"
-		"SWR  (6):  %s\n"
-		"WDTO (4):  %s\n"
-		"SLEEP(3):  %s\n"
-		"IDLE (2):  %s\n"
-		"BOR  (1):  %s\n"
-		"POR  (0):  %s\n\n";
+		"== RCON (Reset Flags) ==\n"
+		"Val=0x%04X\n"
+		"TRAPR: %s (Trap conflict)\n"
+		"IOPWR: %s (Illegal opcode/uninit)\n"
+		"CM:    %s (Config mismatch)\n"
+		"EXTR:  %s (MCLR reset)\n"
+		"SWR:   %s (RESET instruction)\n"
+		"WDTO:  %s (Watchdog timeout)\n"
+		"SLEEP: %s (PWRSAV #SLEEP)\n"
+		"IDLE:  %s (PWRSAV #IDLE)\n"
+		"BOR:   %s (Brown-out reset)\n"
+		"POR:   %s (Power-on reset)\n\n";
 
 
 	portasave = 0;	
@@ -5613,11 +5612,11 @@ int main(void)
 		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,
 			AppConfig.Duplex3,AppConfig.LaunchDelay);
 #endif
-		printf("99 - Save Values to EEPROM\n\n");
-		printf("a  - Auto Reboot Menu\n"
-			"i  - IP Menu\n"
+		printf("99 - Save to EEPROM\n\n");
+		printf("i  - IP Menu\n"
 			"o  - Offline Menu\n"
-			"s  - Squelch Menu\n\n"
+			"s  - Squelch Menu\n"
+			"a  - Auto Reboot Menu\n\n"
 			"q  - Disconnect\n"
 			"r  - Reboot\n\n");
 		
@@ -5877,17 +5876,17 @@ int main(void)
 				// Map GPS state to human-readable string
 				switch(gps_state)
 				{
-					case GPS_STATE_IDLE: gps_state_str = "IDLE (No Signal)"; break;
-					case GPS_STATE_RECEIVED: gps_state_str = "RECEIVING"; break;
+					case GPS_STATE_IDLE: gps_state_str = "IDLE"; break;
+					case GPS_STATE_RECEIVED: gps_state_str = "RX"; break;
 					case GPS_STATE_VALID: gps_state_str = "VALID"; break;
 					case GPS_STATE_SYNCED: gps_state_str = "SYNCED"; break;
-					default: gps_state_str = "UNKNOWN"; break;
+					default: gps_state_str = "??"; break;
 				}
 				
 				// Map GPS protocol
 				if (AppConfig.GPSProto == 0) gps_proto_str = "NMEA";
 				else if (AppConfig.GPSProto == 1) gps_proto_str = "TSIP";
-				else gps_proto_str = "Unknown";
+				else gps_proto_str = "?";
 				
 				sql_level = AppConfig.Sqpot ? AppConfig.Squelch : adcothers[ADCSQPOT];
 				
@@ -5918,7 +5917,7 @@ int main(void)
 				printf(oprdata_net,
 					AppConfig.MyMACAddr.v[0],AppConfig.MyMACAddr.v[1],AppConfig.MyMACAddr.v[2],
 					AppConfig.MyMACAddr.v[3],AppConfig.MyMACAddr.v[4],AppConfig.MyMACAddr.v[5],
-					AppConfig.Flags.bIsDHCPReallyEnabled ? "TRUE" : "FALSE",
+					AppConfig.Flags.bIsDHCPReallyEnabled ? "Y" : "N",
 					AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3],
 					AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3],
 					AppConfig.MyGateway.v[0],AppConfig.MyGateway.v[1],AppConfig.MyGateway.v[2],AppConfig.MyGateway.v[3],
@@ -5930,16 +5929,16 @@ int main(void)
 				
 				// GPS Section
 				printf(oprdata_gps,gps_proto_str,gps_state_str,
-					gpssync ? "TRUE" : "FALSE",
+					gpssync ? "Y" : "N",
 					gps_nsat,
-					ppsx ? "TRUE" : "FALSE");
+					ppsx ? "Y" : "N");
 				if (AppConfig.GPSOffset != 0)
 					printf(oprdata_gps1,AppConfig.GPSOffset);
 				main_processing_loop();
 				secondary_processing_loop();
 				
 				// VOTER Host Server Section
-				printf(oprdata_voter,connected ? "TRUE" : "FALSE",
+				printf(oprdata_voter,connected ? "Y" : "N",
 					CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3],
 					AppConfig.VoterServerPort);
 				mydiff = system_time.vtime_sec - last_rxpacket_sys_time.vtime_sec;
@@ -5964,9 +5963,9 @@ int main(void)
 				
 				// Radio Section
 				printf(oprdata_radio,
-					lastcor ? "TRUE" : "FALSE",
-					CTCSSIN ? "TRUE" : "FALSE",
-					ptt ? "TRUE" : "FALSE",
+					lastcor ? "Y" : "N",
+					CTCSSIN ? "Y" : "N",
+					ptt ? "Y" : "N",
 					rssiheld,last_samplecnt,apeak,
 					AppConfig.TxBufferLength >> 3,
 					AppConfig.SqlNoiseGain,AppConfig.SqlDiode,sql_level,AppConfig.Hysteresis);
@@ -5976,15 +5975,16 @@ int main(void)
 				// RCON Section
 				printf(oprdata_rcon,
 					saved_rcon,
-					(saved_rcon & 0x8000) ? "YES" : "NO",  // TRAPR
-					(saved_rcon & 0x4000) ? "YES" : "NO",  // IOPWR
-					(saved_rcon & 0x0080) ? "YES" : "NO",  // EXTR
-					(saved_rcon & 0x0040) ? "YES" : "NO",  // SWR
-					(saved_rcon & 0x0010) ? "YES" : "NO",  // WDTO
-					(saved_rcon & 0x0008) ? "YES" : "NO",  // SLEEP
-					(saved_rcon & 0x0004) ? "YES" : "NO",  // IDLE
-					(saved_rcon & 0x0002) ? "YES" : "NO",  // BOR
-					(saved_rcon & 0x0001) ? "YES" : "NO"); // POR
+					(saved_rcon & 0x8000) ? "Y" : "N",  // TRAPR(15)
+					(saved_rcon & 0x4000) ? "Y" : "N",  // IOPWR(14)
+					(saved_rcon & 0x0200) ? "Y" : "N",  // CM(9)
+					(saved_rcon & 0x0080) ? "Y" : "N",  // EXTR(7)
+					(saved_rcon & 0x0040) ? "Y" : "N",  // SWR(6)
+					(saved_rcon & 0x0010) ? "Y" : "N",  // WDTO(4)
+					(saved_rcon & 0x0008) ? "Y" : "N",  // SLEEP(3)
+					(saved_rcon & 0x0004) ? "Y" : "N",  // IDLE(2)
+					(saved_rcon & 0x0002) ? "Y" : "N",  // BOR(1)
+					(saved_rcon & 0x0001) ? "Y" : "N");  // POR(0)
 				main_processing_loop();
 				secondary_processing_loop();
 				
