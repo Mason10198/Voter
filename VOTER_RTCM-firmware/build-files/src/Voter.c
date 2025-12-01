@@ -101,7 +101,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #endif
 
 /* Build date/time inserted by compiler via __DATE__ and __TIME__ */
-const ROM char VERSION[] = FIRMWARE_VERSION " (Compiled: " __DATE__ " " __TIME__ ")";
+const ROM char VERSION[] = FIRMWARE_VERSION " (" __DATE__ " " __TIME__ ")";
 
 #define M_PI       3.14159265358979323846
 
@@ -3980,6 +3980,33 @@ void secondary_processing_loop(void)
 		rssi_count_sec = 0;
 	}
 
+	/* Auto Reboot Scheduler - fire at second :00 of target minute */
+	{
+		static BYTE last_reboot_min = 0xFF;  // Track last minute we fired to prevent re-trigger
+		if ((AppConfig.RebootMode > 0) && (system_time.vtime_sec > 0))
+		{
+			struct tm *tm = gmtime((time_t *)&system_time.vtime_sec);
+			
+			/* Fire at :00 seconds of target hour:minute (and day if weekly) */
+			if (tm->tm_sec == 0 && 
+			    tm->tm_hour == AppConfig.RebootHour && 
+			    tm->tm_min == AppConfig.RebootMinute &&
+			    tm->tm_min != last_reboot_min &&
+			    ((AppConfig.RebootMode == 1) || 
+			     (AppConfig.RebootMode == 2 && tm->tm_wday == AppConfig.RebootDay)))
+			{
+				last_reboot_min = tm->tm_min;
+				LOG_SYS("Scheduled system reboot\n");
+				RTCM_Reset();
+			}
+			/* Clear flag when we move to a different minute */
+			if (tm->tm_min != last_reboot_min && last_reboot_min != 0xFF)
+			{
+				last_reboot_min = 0xFF;
+			}
+		}
+	}
+
 	if ((!indipsw) && (!indisplay) && (!leddiag)) tdisp = 0;
 
 	// Rx Level Display handler
@@ -5043,6 +5070,104 @@ static void SquelchMenu()
 
 /*****************************************************************************/
 //									     //
+//		Auto Reboot Functions					     //
+//									     //
+/*****************************************************************************/
+
+static void AutoRebootMenu()
+{
+	while(1) 
+	{
+		unsigned int i1;
+		BOOL ok;
+		int sel;
+
+		printf(
+			"\nAuto Reboot Menu - Current UTC: %s\n\n"
+
+			"1 - Schedule (0=Off, 1=Daily, 2=Wkly) (%u)\n"
+			"2 - Day (0=Sun...6=Sat) (%u)\n"
+			"3 - Hour (%u)\n"
+			"4 - Minute (%u)\n\n",
+			get_utc_time(),
+			AppConfig.RebootMode, AppConfig.RebootDay, AppConfig.RebootHour, 
+			AppConfig.RebootMinute);
+		main_processing_loop();
+		menu_print_footer("Auto Reboot");
+		
+		switch(menu_get_input("Enter Selection: "))
+		{
+			case 0: continue;
+			case 1: continue;
+			case 2: continue;
+			case 3: return;
+		}
+
+		sel = atoi(cmdstr);
+
+		if (sel >= 1 && sel <= 4)
+		{
+			printf(str_enter_newval);
+			if (aborted || !myfgets(cmdstr,sizeof(cmdstr)-1) || strlen(cmdstr) < 2)
+			{
+				printf(err_noentry_notchanged);
+				continue;
+			}
+		}
+
+		ok = 0;
+
+		switch(sel)
+		{
+			case 1:
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2))
+				{
+					AppConfig.RebootMode = i1;
+					ok = 1;
+				}
+				break;
+
+			case 2:
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 6))
+				{
+					AppConfig.RebootDay = i1;
+					ok = 1;
+				}
+				break;
+
+			case 3:
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 23))
+				{
+					AppConfig.RebootHour = i1;
+					ok = 1;
+				}
+				break;
+
+			case 4:
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 59))
+				{
+					AppConfig.RebootMinute = i1;
+					ok = 1;
+				}
+				break;
+
+			case 99:
+				SaveAppConfig();
+				LOG_SYS("%s", saved);
+				continue;
+
+			default:
+				printf(invalselection);
+				continue;
+		}
+		
+		if (ok) printf(msg_changed_success);
+		else printf(err_invalid_notchanged);
+	}
+}
+
+/*****************************************************************************/
+//									     //
 //	MAIN Subroutine							     //
 //									     //
 /*****************************************************************************/
@@ -5489,7 +5614,8 @@ int main(void)
 			AppConfig.Duplex3,AppConfig.LaunchDelay);
 #endif
 		printf("99 - Save Values to EEPROM\n\n");
-		printf("i  - IP Menu\n"
+		printf("a  - Auto Reboot Menu\n"
+			"i  - IP Menu\n"
 			"o  - Offline Menu\n"
 			"s  - Squelch Menu\n\n"
 			"q  - Disconnect\n"
@@ -5500,6 +5626,12 @@ int main(void)
 			case 0: continue; // aborted
 			case 1: continue; // quit
 			case 2: continue; // reboot (never reached)
+		}
+
+		if ((strchr(cmdstr,'A')) || strchr(cmdstr,'a'))
+		{
+			AutoRebootMenu();
+			continue;
 		}
 
 		if ((strchr(cmdstr,'I')) || strchr(cmdstr,'i'))

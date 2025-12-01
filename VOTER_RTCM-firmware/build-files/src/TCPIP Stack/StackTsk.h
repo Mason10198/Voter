@@ -170,8 +170,12 @@ typedef struct __attribute__((__packed__))
 	WORD Squelch;
 	WORD Hysteresis;
 	BOOL Sqpot;
-	BYTE AuxOutMode;		// 0=Auto, 1=Force High, 2=Force Low
-	BYTE Zeros[552];
+	BYTE AuxOutMode;
+	BYTE RebootMode;
+	BYTE RebootDay;
+	BYTE RebootHour;
+	BYTE RebootMinute;
+	BYTE Zeros[548];
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION
