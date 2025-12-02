@@ -1905,7 +1905,6 @@ static inline void SetConnStatus(BOOL val)
 	BYTE oldout;
 	BOOL actual_val;
 	BOOL desired_output;
-	static WORD delay_timer_10ms = 0;
 	
 	// Check AuxOutMode: 0=ConnStatus, 1=Force High, 2=Force Low
 	if (AppConfig.AuxOutMode == 1)
@@ -1924,11 +1923,11 @@ static inline void SetConnStatus(BOOL val)
 			// Current output is high, increment timer
 			if (IOExpOutB & 0x80)
 			{
-				delay_timer_10ms++;
+				conn_status_offline_timer++;
 				
 				// Timer is in 10ms units, OfflineDelay is in seconds
 				// Convert seconds to 10ms units: seconds * 100
-				if (delay_timer_10ms >= (AppConfig.OfflineDelay * 100))
+				if (conn_status_offline_timer >= (AppConfig.OfflineDelay * 100))
 				{
 					actual_val = 0;
 				}
@@ -1944,7 +1943,7 @@ static inline void SetConnStatus(BOOL val)
 		}
 		else  // Transitioning to or maintaining online
 		{
-			delay_timer_10ms = 0;  // Reset timer on online state
+			conn_status_offline_timer = 0;  // Reset timer on online state
 			actual_val = 1;
 		}
 	}
@@ -1952,7 +1951,7 @@ static inline void SetConnStatus(BOOL val)
 	{
 		// No delay - use desired output directly
 		actual_val = desired_output;
-		if (actual_val == 1) delay_timer_10ms = 0;
+		if (actual_val == 1) conn_status_offline_timer = 0;
 	}
 	
 	oldout = IOExpOutB;
@@ -3669,14 +3668,13 @@ void secondary_processing_loop(void)
 						vnoise32 = ((vnoise32 * 3) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 2;
 				}
 
-				if ((!connected) && (!qualcor) && wascor && (gpssync || (!USE_PPS) || (!SIMULCAST_ENABLE)))
-				{
-					if (AppConfig.FailMode == 2) needburp = 1;
+			if ((connected == 0 && (AppConfig.OfflineDelay == 0 || conn_status_offline_timer >= (AppConfig.OfflineDelay * 100))) && 
+				(!qualcor) && wascor && (gpssync || (!USE_PPS) || (!SIMULCAST_ENABLE)))
+			{
+				if (AppConfig.FailMode == 2) needburp = 1;
 
-					if ((AppConfig.FailMode == 3) && (!connfail)) needburp = 1;
-				}
-
-				wascor = qualcor;
+				if ((AppConfig.FailMode == 3) && (!connfail)) needburp = 1;
+			}				wascor = qualcor;
 			}
 #ifdef	DSPBEW
 			if (qualnoise) mynoise = (WORD)lastvnoise32[1];
@@ -3733,7 +3731,12 @@ void secondary_processing_loop(void)
 
 	z = 100000;
 	x = system_time.vtime_sec - lastrxtime.vtime_sec;
-	isoffline = ((!connected) && (AppConfig.FailMode == 3));
+	
+	// Calculate delayed connected state (applies offline delay)
+	// If delay is configured and timer hasn't expired yet, treat as still connected
+	isoffline = ((!connected || (AppConfig.OfflineDelay > 0 && connected == 0 && 
+		conn_status_offline_timer < (AppConfig.OfflineDelay * 100))) ? 0 : 1);
+	isoffline = (!isoffline) && (AppConfig.FailMode == 3);
 
 		if ((isoffline || DUPLEX3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
 		{
@@ -4157,10 +4160,13 @@ void secondary_processing_loop(void)
 			hangtimer = 0;
 		}
 
-		if (connected && (!connfail)) connfail = 1;
+		// Use delayed connection state for offline CW ID
+		BOOL delayed_connected = (connected || (AppConfig.OfflineDelay > 0 && conn_status_offline_timer < (AppConfig.OfflineDelay * 100)));
+		
+		if (delayed_connected && (!connfail)) connfail = 1;
 		else if (AppConfig.FailMode && (!cwptr) && (!cwtimer1) && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
 		{
-			if (connected)
+			if (delayed_connected)
 			{
 				if ((connfail == 2) && AppConfig.UnFailString[0])
 				{
@@ -4186,7 +4192,7 @@ void secondary_processing_loop(void)
 			}
 		}
 
-		if (connected) needburp = 0;
+		if (delayed_connected) needburp = 0;
 
 		if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0] && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
 		{
