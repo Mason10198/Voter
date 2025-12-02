@@ -5210,35 +5210,35 @@ int main(void)
 	RCON &= 0x3F20;  // Clear all reset status bits: TRAPR(15), IOPWR(14), EXTR(7), SWR(6), WDTO(4), SLEEP(3), IDLE(2), BOR(1), POR(0)
 	
 	static /* ROM */ char menu1[] = "\n" 
-		"1  - Serial# (%d) [MAC=%02X:%02X:%02X:%02X:%02X:%02X]\n",
+		"1  - Serial# (%d) [MAC=%02X:%02X:%02X:%02X:%02X:%02X]\n"
+		"2  - Client Pass (%s)\n"
+		"3  - Local Port (%u)\n\n",
 		menu2[] = 
-		"2  - Server FQDN (%s)\n"
-		"3  - Server Port (%u)\n"
-		"4  - Local Port (%u)\n"
-		"5  - Client Pass (%s)\n"
-		"6  - Host Pass (%s)\n",
+		"4  - Server FQDN (%s)\n"
+		"5  - Server Port (%u)\n"
+		"6  - AltSvr FQDN (%s)\n"
+		"7  - AltSvr Port (%u)\n"
+		"8  - Host Pass (%s)\n\n",
 		menu3[] = 
-		"7  - TxBuf Len (%d)\n\n"
-		"8  - GPS Proto (0=NMEA,1=TSIP) (%d)\n"
-		"81 - GPS Type (0=Norm,1=Tbolt) (%d)\n"
-		"82 - GPS TimeOfs (sec) (%lu)\n"
-		"9  - GPS SerPol (0=Norm,1=Inv) (%d)\n"
-		"10 - PPS Pol (0=Norm,1=Inv,2=OFF) (%d)\n",
+		"9  - GPS Baud (%lu)\n"
+		"10 - GPS SerPol (0=Norm,1=Inv) (%d)\n"
+		"11 - PPS Pol (0=Norm,1=Inv,2=OFF) (%d)\n"
+		"12 - GPS Proto (0=NMEA,1=TSIP) (%d)\n"
+		"13 - GPS Type (0=Norm,1=Tbolt) (%d)\n"
+		"14 - GPS TimeOfs (sec) (%lu)\n\n",
 		menu4[] = 
-		"11 - GPS Baud (%lu)\n\n"
-		"12 - ExtCTCSS (0=Ign,1=Norm,2=Inv) (%d)\n"
-		"13 - COR (0=Norm,1=Ign,2=NoRX) (%d)\n"
-		"14 - Debug Opts (%lu)\n",
+		"15 - ExtCTCSS (0=Ign,1=Norm,2=Inv) (%d)\n"
+		"16 - COR (0=Norm,1=Ign,2=NoRX) (%d)\n"
+		"17 - Duplex3 (0=OFF,1-255x0.1s) (%u)\n"
+		"18 - TxBuf Len (%d)\n"
+		"19 - Launch Delay (x200ns,>0=ON) (%u)\n\n",
 		menu5[] = 
-		"15 - AltSvr FQDN (%s)\n"
-		"16 - AltSvr Port (%u)\n"
+		"20 - Debug Opts (%lu)\n"
 #ifdef	DSPBEW
-		"17 - DSP/BEW (%d)\n"
+		"21 - DSP/BEW (%d)\n\n"
 #else
-		"17 - DSP/BEW N/A\n"
+		"21 - DSP/BEW [N/A]\n\n"
 #endif
-		"18 - Duplex3 (0=OFF,1-255x0.1s) (%u)\n"
-		"19 - Launch Delay (x200ns,>0=ON) (%u)\n\n"
 		"97 - RX Level\n"
 		"98 - Status\n",
 		entsel[] = "Enter selection: ";
@@ -5627,25 +5627,26 @@ int main(void)
 
 		SetAudioSrc();
 		printf(menu1,AppConfig.SerialNumber,AppConfig.MyMACAddr.v[0],AppConfig.MyMACAddr.v[1],AppConfig.MyMACAddr.v[2],
-			AppConfig.MyMACAddr.v[3],AppConfig.MyMACAddr.v[4],AppConfig.MyMACAddr.v[5]);
+			AppConfig.MyMACAddr.v[3],AppConfig.MyMACAddr.v[4],AppConfig.MyMACAddr.v[5],
+			AppConfig.Password,AppConfig.DefaultPort);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu2,AppConfig.VoterServerFQDN,AppConfig.VoterServerPort,AppConfig.DefaultPort,AppConfig.Password,
-			AppConfig.HostPassword);
+		printf(menu2,AppConfig.VoterServerFQDN,AppConfig.VoterServerPort,AppConfig.AltVoterServerFQDN,
+			AppConfig.AltVoterServerPort,AppConfig.HostPassword);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu3,AppConfig.TxBufferLength,AppConfig.GPSProto,AppConfig.GPSTbolt,AppConfig.GPSOffset,AppConfig.GPSPolarity,AppConfig.PPSPolarity);
+		printf(menu3,AppConfig.GPSBaudRate,AppConfig.GPSPolarity,AppConfig.PPSPolarity,AppConfig.GPSProto,
+			AppConfig.GPSTbolt,AppConfig.GPSOffset);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu4,AppConfig.GPSBaudRate,AppConfig.ExternalCTCSS,AppConfig.CORType,AppConfig.DebugLevel1);
+		printf(menu4,AppConfig.ExternalCTCSS,AppConfig.CORType,AppConfig.Duplex3,AppConfig.TxBufferLength,
+			AppConfig.LaunchDelay);
 		main_processing_loop();
 		secondary_processing_loop();
 #ifdef	DSPBEW
-		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,AppConfig.BEWMode,
-			AppConfig.Duplex3,AppConfig.LaunchDelay);
+		printf(menu5,AppConfig.DebugLevel1,AppConfig.BEWMode);
 #else
-		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,
-			AppConfig.Duplex3,AppConfig.LaunchDelay);
+		printf(menu5,AppConfig.DebugLevel1);
 #endif
 		printf("99 - Save to EEPROM\n\n");
 		printf("i  - IP Menu\n"
@@ -5698,13 +5699,13 @@ int main(void)
 		
 		sel = atoi(cmdstr);
 #ifdef	DSPBEW
-		if (((sel >= 1) && (sel <= 19)) || (sel == 81) || (sel == 82) || (sel == 11780) || (sel == 1103) || (sel == 1170))
+		if (((sel >= 1) && (sel <= 21)) || (sel == 11780) || (sel == 1103) || (sel == 1170))
 #else
-		if ((((sel >= 1) && (sel <= 19)) || (sel == 81) || (sel == 82) || (sel == 11780) || (sel == 1103) || (sel == 1170)) && (sel != 17))
+		if ((((sel >= 1) && (sel <= 21)) || (sel == 11780) || (sel == 1103) || (sel == 1170)) && (sel != 21))
 #endif
 		{
-			/* If user selected Debug Level (14), print the bit descriptions first */
-				if (sel == 14)
+			/* If user selected Debug Level (20), print the bit descriptions first */
+				if (sel == 20)
 				{
 					printf("\n1-RX/TX log 2-Stats 16-NoTOS 32-GPS 64-FixGPS\n"
 						"Sum values (e.g. 3=1+2)\n\n");
@@ -5714,7 +5715,7 @@ int main(void)
 
 			if (aborted) continue;
 
-			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || ((strlen(cmdstr) < 2) && (sel != 15)))
+			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || ((strlen(cmdstr) < 2) && (sel != 6)))
 			{
 				printf(err_noentry_notchanged);
 				continue;
@@ -5735,34 +5736,7 @@ int main(void)
 				}
 				break;
 
-			case 2: // VOTER Server FQDN
-				x = strlen(cmdstr);
-
-				if ((x > 2) && (x < sizeof(AppConfig.VoterServerFQDN)))
-				{
-					cmdstr[x - 1] = 0;
-					strcpy(AppConfig.VoterServerFQDN,cmdstr);
-					ok = 1;
-				}
-				break;
-
-			case 3: // Voter Server PORT
-				if (sscanf(cmdstr,"%u",&i1) == 1)
-				{
-					AppConfig.VoterServerPort = i1;
-					ok = 1;
-				}
-				break;
-
-			case 4: // My Default Port
-				if (sscanf(cmdstr,"%u",&i1) == 1)
-				{
-					AppConfig.DefaultPort = i1;
-					ok = 1;
-				}
-				break;
-
-			case 5: // VOTER Client Password
+			case 2: // VOTER Client Password
 				x = strlen(cmdstr);
 
 				if ((x > 2) && (x < sizeof(AppConfig.Password)))
@@ -5773,99 +5747,34 @@ int main(void)
 				}
 				break;
 
-			case 6: // VOTER Server Password
+			case 3: // My Default Port (Local Port)
+				if (sscanf(cmdstr,"%u",&i1) == 1)
+				{
+					AppConfig.DefaultPort = i1;
+					ok = 1;
+				}
+				break;
+
+			case 4: // VOTER Server FQDN
 				x = strlen(cmdstr);
 
-				if ((x > 2) && (x < sizeof(AppConfig.HostPassword)))
+				if ((x > 2) && (x < sizeof(AppConfig.VoterServerFQDN)))
 				{
 					cmdstr[x - 1] = 0;
-					strcpy(AppConfig.HostPassword,cmdstr);
+					strcpy(AppConfig.VoterServerFQDN,cmdstr);
 					ok = 1;
 				}
 				break;
 
-			case 7: // Tx Buffer Length
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= 480) && (i1 <= MAX_BUFLEN))
+			case 5: // Voter Server PORT
+				if (sscanf(cmdstr,"%u",&i1) == 1)
 				{
-					AppConfig.TxBufferLength = i1;
+					AppConfig.VoterServerPort = i1;
 					ok = 1;
 				}
 				break;
 
-			case 8: // GPS Type
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= GPS_NMEA) && (i1 <= GPS_TSIP))
-				{
-					AppConfig.GPSProto = i1;
-					ok = 1;
-				}
-				break;
-
-			case 81: // GPS is a Thunderbolt
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2))
-				{
-					AppConfig.GPSTbolt = i1;
-					ok = 1;
-				}
-				break;
-
-			case 82: // GPS Time Offset (seconds)
-				if ((sscanf(cmdstr,"%lu",&l) == 1) && (l <= 788400000UL))
-				{
-					AppConfig.GPSOffset = l;
-					ok = 1;
-				}
-				break;
-
-			case 9: // GPS Invert
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2))
-				{
-					AppConfig.GPSPolarity = i1;
-					ok = 1;
-				}
-				break;
-
-			case 10: // PPS Invert
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 3))
-				{
-					AppConfig.PPSPolarity = i1;
-					ok = 1;
-				}
-				break;
-
-			case 11: // GPS Baud Rate
-				if ((sscanf(cmdstr,"%lu",&l) == 1) && (l >= 300L) && (l <= 230400L))
-				{
-					AppConfig.GPSBaudRate = l;
-					ok = 1;
-				}
-				break;
-
-			case 12: // EXT CTCSS
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2))
-				{
-					AppConfig.ExternalCTCSS = i1;
-					ok = 1;
-				}
-				break;
-
-			case 13: // COR Type
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2))
-				{
-					AppConfig.CORType = i1;
-					ok = 1;
-				}
-				break;
-
-			case 14: // Debug Level
-				if (sscanf(cmdstr,"%lu",&l) == 1)
-				{
-					AppConfig.DebugLevel1 = l;
-					AppConfig.DebugLevel = l & 0xff;
-					ok = 1;
-				}
-				break;
-
-			case 15: // Alt VOTER Server FQDN
+			case 6: // Alt VOTER Server FQDN
 				x = strlen(cmdstr);
 
 				if ((x > 0) && (x < sizeof(AppConfig.VoterServerFQDN)))
@@ -5876,26 +5785,100 @@ int main(void)
 				}
 				break;
 
-			case 16: // Alt Voter Server PORT
+			case 7: // Alt Voter Server PORT
 				if (sscanf(cmdstr,"%u",&i1) == 1)
 				{
 					AppConfig.AltVoterServerPort = i1;
 					ok = 1;
 				}
 				break;
-#ifdef	DSPBEW
-			case 17: // BEW Mode
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2))
+
+			case 8: // VOTER Server Password (Host Pass)
+				x = strlen(cmdstr);
+
+				if ((x > 2) && (x < sizeof(AppConfig.HostPassword)))
 				{
-					AppConfig.BEWMode = i1;
+					cmdstr[x - 1] = 0;
+					strcpy(AppConfig.HostPassword,cmdstr);
 					ok = 1;
 				}
 				break;
-#endif
-			case 18: // Duplex3 Hang Time
+
+			case 9: // GPS Baud Rate
+				if ((sscanf(cmdstr,"%lu",&l) == 1) && (l >= 300L) && (l <= 230400L))
+				{
+					AppConfig.GPSBaudRate = l;
+					ok = 1;
+				}
+				break;
+
+			case 10: // GPS Invert (SerPol)
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2))
+				{
+					AppConfig.GPSPolarity = i1;
+					ok = 1;
+				}
+				break;
+
+			case 11: // PPS Invert (PPS Pol)
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 3))
+				{
+					AppConfig.PPSPolarity = i1;
+					ok = 1;
+				}
+				break;
+
+			case 12: // GPS Proto (GPS Type)
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= GPS_NMEA) && (i1 <= GPS_TSIP))
+				{
+					AppConfig.GPSProto = i1;
+					ok = 1;
+				}
+				break;
+
+			case 13: // GPS is a Thunderbolt (GPS Type)
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2))
+				{
+					AppConfig.GPSTbolt = i1;
+					ok = 1;
+				}
+				break;
+
+			case 14: // GPS Time Offset (seconds)
+				if ((sscanf(cmdstr,"%lu",&l) == 1) && (l <= 788400000UL))
+				{
+					AppConfig.GPSOffset = l;
+					ok = 1;
+				}
+				break;
+
+			case 15: // EXT CTCSS
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2))
+				{
+					AppConfig.ExternalCTCSS = i1;
+					ok = 1;
+				}
+				break;
+
+			case 16: // COR Type
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2))
+				{
+					AppConfig.CORType = i1;
+					ok = 1;
+				}
+				break;
+			case 17: // Duplex3 Hang Time
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 255))
 				{
 					AppConfig.Duplex3 = i1;
+					ok = 1;
+				}
+				break;
+
+			case 18: // Tx Buffer Length
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= 480) && (i1 <= MAX_BUFLEN))
+				{
+					AppConfig.TxBufferLength = i1;
 					ok = 1;
 				}
 				break;
@@ -5907,6 +5890,24 @@ int main(void)
 					ok = 1;
 				}
 				break;
+
+			case 20: // Debug Level
+				if (sscanf(cmdstr,"%lu",&l) == 1)
+				{
+					AppConfig.DebugLevel1 = l;
+					AppConfig.DebugLevel = l & 0xff;
+					ok = 1;
+				}
+				break;
+#ifdef	DSPBEW
+			case 21: // BEW Mode
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2))
+				{
+					AppConfig.BEWMode = i1;
+					ok = 1;
+				}
+				break;
+#endif
 
 		case 97: // Display RX Level Quasi-Graphically  
 			printf(" \rRX Level:\n");
