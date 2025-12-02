@@ -171,12 +171,13 @@ typedef struct __attribute__((__packed__))
 	WORD Hysteresis;
 	BOOL Sqpot;
 	BYTE AuxOutMode;
+	WORD OfflineDelay;
 	BYTE RebootMode;
 	BYTE RebootDay;
 	BYTE RebootHour;
 	BYTE RebootMinute;
 	WORD RebootColdPowerMins;
-	BYTE Zeros[546];
+	BYTE Zeros[544];
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION
