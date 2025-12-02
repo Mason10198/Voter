@@ -95,10 +95,8 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 /* Update the version number for the firmware here */
 #define FIRMWARE_VERSION "4.00"
 
-/* There's room! Force BEW mode unconditionally */
-#ifndef DSPBEW
+// Optional features - comment out to remove from build
 #define DSPBEW
-#endif
 
 const ROM char VERSION[] = FIRMWARE_VERSION " (Compiled: " __DATE__ ")";
 
@@ -5496,7 +5494,7 @@ int main(void)
 	TwidFactorInit (LOG2_BLOCK_LENGTH, &twiddleFactors[0], 0);	/* We need to do this only once at start-up */
 #endif
 
-#endif // dspbew
+#endif // DSPBEW
 
 	udpSocketUser = INVALID_UDP_SOCKET;
 
