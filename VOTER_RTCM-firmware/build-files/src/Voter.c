@@ -100,8 +100,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define DSPBEW
 #endif
 
-/* Build date/time inserted by compiler via __DATE__ and __TIME__ */
-const ROM char VERSION[] = FIRMWARE_VERSION " (" __DATE__ " " __TIME__ ")";
+const ROM char VERSION[] = FIRMWARE_VERSION " (Compiled: " __DATE__ ")";
 
 #define M_PI       3.14159265358979323846
 
