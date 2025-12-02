@@ -1920,30 +1920,19 @@ static inline void SetConnStatus(BOOL val)
 	{
 		if (desired_output == 0)  // Transitioning to offline
 		{
-			// Current output is high, increment timer
-			if (IOExpOutB & 0x80)
+			// Timer is in 10ms units, OfflineDelay is in seconds
+			// Convert seconds to 10ms units: seconds * 100
+			if (conn_status_offline_timer >= (AppConfig.OfflineDelay * 100))
 			{
-				conn_status_offline_timer++;
-				
-				// Timer is in 10ms units, OfflineDelay is in seconds
-				// Convert seconds to 10ms units: seconds * 100
-				if (conn_status_offline_timer >= (AppConfig.OfflineDelay * 100))
-				{
-					actual_val = 0;
-				}
-				else
-				{
-					actual_val = 1;  // Maintain online status during delay period
-				}
+				actual_val = 0;
 			}
 			else
 			{
-				actual_val = 0;  // Already offline
+				actual_val = 1;  // Maintain online status during delay period
 			}
 		}
 		else  // Transitioning to or maintaining online
 		{
-			conn_status_offline_timer = 0;  // Reset timer on online state
 			actual_val = 1;
 		}
 	}
@@ -1951,7 +1940,6 @@ static inline void SetConnStatus(BOOL val)
 	{
 		// No delay - use desired output directly
 		actual_val = desired_output;
-		if (actual_val == 1) conn_status_offline_timer = 0;
 	}
 	
 	oldout = IOExpOutB;
@@ -3732,6 +3720,16 @@ void secondary_processing_loop(void)
 	z = 100000;
 	x = system_time.vtime_sec - lastrxtime.vtime_sec;
 	
+	// Manage offline delay timer (works on both SMT and non-SMT boards)
+	if (connected)
+	{
+		conn_status_offline_timer = 0;  // Reset timer when online
+	}
+	else if (AppConfig.OfflineDelay > 0 && conn_status_offline_timer < (AppConfig.OfflineDelay * 100))
+	{
+		conn_status_offline_timer++;  // Increment timer during offline delay period
+	}
+	
 	// Calculate delayed connected state (applies offline delay)
 	// If delay is configured and timer hasn't expired yet, treat as still connected
 	isoffline = ((!connected || (AppConfig.OfflineDelay > 0 && connected == 0 && 
@@ -4791,9 +4789,9 @@ static void OffLineMenu()
 		"9  - CTCSS Hz (%.1f)\n"
 		"10 - CTCSS Lev (%d)\n"
 		"11 - NoDeemp (0=Norm,1=Off) (%d)\n"
+		"12 - Offline Delay Secs (%u)\n"
 #if !defined(SMT_BOARD)
-		"12 - AuxOut (0=ConnStatus,1=Hi,2=Lo) (%d)\n"
-		"13 - Offline Delay Secs (%u)\n"
+		"13 - AuxOut (0=ConnStatus,1=Hi,2=Lo) (%d)\n"
 #endif
 		,
 		entsel[] = "Enter selection: ";
@@ -4803,9 +4801,9 @@ static void OffLineMenu()
 		secondary_processing_loop();
 		printf(menu1,AppConfig.FailString,AppConfig.UnFailString,AppConfig.FailTime,AppConfig.HangTime);
 		main_processing_loop();
-		printf(menu1a,(double)AppConfig.CTCSSTone,AppConfig.CTCSSLevel,AppConfig.OffLineNoDeemp
+		printf(menu1a,(double)AppConfig.CTCSSTone,AppConfig.CTCSSLevel,AppConfig.OffLineNoDeemp,AppConfig.OfflineDelay
 #if !defined(SMT_BOARD)
-		,AppConfig.AuxOutMode,AppConfig.OfflineDelay
+		,AppConfig.AuxOutMode
 #endif
 		);
 		main_processing_loop();
@@ -4827,7 +4825,7 @@ static void OffLineMenu()
 #if !defined(SMT_BOARD)
 		if ((sel >= 1) && (sel <= 13))
 #else
-		if ((sel >= 1) && (sel <= 11))
+		if ((sel >= 1) && (sel <= 12))
 #endif
 		{
 			printf(str_enter_newval);
@@ -4948,20 +4946,20 @@ static void OffLineMenu()
 				}
 				break;
 
-#if !defined(SMT_BOARD)
-			case 12: // Aux Out Mode
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2))
-				{
-					AppConfig.AuxOutMode = i1;
-					ok = 1;
-				}
-				break;
-
-			case 13: // Offline Delay
+			case 12: // Offline Delay
 				if (sscanf(cmdstr,"%u",&i1) == 1)
 				{
 					AppConfig.OfflineDelay = i1;
 					conn_status_offline_timer = 0;  // Reset timer on config change
+					ok = 1;
+				}
+				break;
+
+#if !defined(SMT_BOARD)
+			case 13: // Aux Out Mode
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2))
+				{
+					AppConfig.AuxOutMode = i1;
 					ok = 1;
 				}
 				break;
@@ -6383,6 +6381,7 @@ static void InitAppConfig(void)
 	AppConfig.Squelch = 400;
 	AppConfig.Hysteresis = 24;
 	AppConfig.Sqpot = 0;
+	AppConfig.AuxOutMode = 0;  // Default: auto mode (connection status)
 	AppConfig.OfflineDelay = 0;  // Default: no delay (immediate offline indication)
 
 	#if defined(EEPROM_CS_TRIS)
