@@ -4777,23 +4777,23 @@ static void OffLineMenu()
 		int sel;
 		float f;
 
-	static /*ROM*/ char menu[] = "\nOff\n\n" 
-		"1-Mod(%d)\n"
-		"2-CWSp(%u)\n"
-		"3-PreCW(%u)\n"
-		"4-PstCW(%u)\n",
+	static /*ROM*/ char menu[] = "\nOffline Menu\n\n" 
+		"1  - Mode (0=OFF,1=Spx,2=Spx+Trg,3=Rpt) (%d)\n"
+		"2  - CW Speed x1/8000s (%u)\n"
+		"3  - PreCW x1/8000s (%u)\n"
+		"4  - PostCW x1/8000s (%u)\n",
 		menu1[] = 
-		"5-OffID(%s)\n"
-		"6-OnID(%s)\n"
-		"7-Per(%u)\n"
-		"8-Hang(%u)\n",
+		"5  - CW OffID (%s)\n"
+		"6  - CW OnID (%s)\n"
+		"7  - ID Per x0.1s (%u)\n"
+		"8  - RptHang x0.1s (%u)\n",
 		menu1a[] = 
-		"9-PL(%.1f)\n"
-		"10-PLLv(%d)\n"
-		"11-Deemp(%d)\n"
-		"12-Delay(%u)\n"
+		"9  - CTCSS Hz (%.1f)\n"
+		"10 - CTCSS Lev (%d)\n"
+		"11 - NoDeemp (0=Norm,1=Off) (%d)\n"
+		"12 - Offline Delay Secs (%u)\n"
 #if !defined(SMT_BOARD)
-		"13-Aux(%d)\n"
+		"13 - AuxOut (0=ConnStatus,1=Hi,2=Lo) (%d)\n"
 #endif
 		;
 
@@ -4995,10 +4995,10 @@ static void SquelchMenu()
 		BOOL ok;
 		int sel;
 
-	static /*ROM*/ char menu[] = "\nSQL\n\n" 
-		"1-Pot(%d)\n"
-		"2-Set(%d)\n"
-		"3-Hyst(%d)\n";
+	static /*ROM*/ char menu[] = "\nSquelch Menu\n\n" 
+		"1  - Pot (0=HW,1=SW) (%d)\n"
+		"2  - Setting 1-1023 (%d)\n"
+		"3  - Hyst 1-100 (%d)\n";
 
 		ROM char *entsel = str_enter_sel;
 
