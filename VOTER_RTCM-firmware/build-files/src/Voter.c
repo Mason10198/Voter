@@ -4165,25 +4165,25 @@ void secondary_processing_loop(void)
 		if (delayed_connected && (!connfail)) connfail = 1;
 		else if (AppConfig.FailMode && (!cwptr) && (!cwtimer1) && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
 		{
-			if (delayed_connected)
+		if (delayed_connected)
+		{
+			if ((connfail == 2) && AppConfig.UnFailString[0])
 			{
-				if ((connfail == 2) && AppConfig.UnFailString[0])
-				{
-					domorse((char *)AppConfig.UnFailString);
-					connfail = 1;
-				}
+				ptt_ignore_timer = 0;
+				domorse((char *)AppConfig.UnFailString);
+				connfail = 1;
 			}
-			else
+		}
+		else
+		{
+			if ((connfail == 1) && AppConfig.FailString[0])
 			{
-				if ((connfail == 1) && AppConfig.FailString[0])
-				{
-					domorse((char *)AppConfig.FailString);
-					connfail = 2;
-					failtimer = 0;
-				}
+				ptt_ignore_timer = 0;
+				domorse((char *)AppConfig.FailString);
+				connfail = 2;
+				failtimer = 0;
 			}
-
-			if ((connfail == 2) && AppConfig.FailTime && 
+		}			if ((connfail == 2) && AppConfig.FailTime && 
 				(failtimer >= AppConfig.FailTime) && AppConfig.FailString[0])
 			{
 				domorse((char *)AppConfig.FailString);
@@ -4193,15 +4193,14 @@ void secondary_processing_loop(void)
 
 		if (delayed_connected) needburp = 0;
 
-		if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0] && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
-		{
-			needburp = 0;
-			if (!connfail) connfail = 2;
-			domorse((char *)AppConfig.FailString);
-			failtimer = 0;
-		}
-
-	// If the local IP address has changed (ex: due to DHCP lease change)
+	if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0] && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
+	{
+		needburp = 0;
+		if (!connfail) connfail = 2;
+		ptt_ignore_timer = 0;
+		domorse((char *)AppConfig.FailString);
+		failtimer = 0;
+	}	// If the local IP address has changed (ex: due to DHCP lease change)
 	// write the new IP address to the LCD display, UART, and Announce 
 	// service
 	if(dwLastIP != AppConfig.MyIPAddr.Val)
