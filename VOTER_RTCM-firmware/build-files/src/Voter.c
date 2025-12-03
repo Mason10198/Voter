@@ -259,35 +259,36 @@ ROM char fmt_ip[] = "%d.%d.%d.%d";
 ROM char fmt_ip_newline[] = "%d.%d.%d.%d\n";
 
 // Common menu fragments
-ROM char str_enter_newval[] = "Enter new value: ";
+ROM char str_enter_newval[] = "Val: ";
+ROM char str_enter_sel[] = "Sel: ";
 
 // Common error/status messages
 ROM char err_invalid_prefix[] = "Invalid entry: ";
 ROM char err_noentry_prefix[] = "No entry: ";
 ROM char err_not_changed[] = "Not changed\n";
-ROM char msg_changed_success[] = "Changed\n";
+ROM char msg_changed_success[] = "OK\n";
 ROM char msg_error_prefix[] = "ERR: ";
 
 // Consolidated error messages (saves ~60 bytes by using ROM prefix strings)
-ROM char err_invalid_notchanged[] = "Invalid entry\n";
-ROM char err_noentry_notchanged[] = "No entry\n";
+ROM char err_invalid_notchanged[] = "Inv\n";
+ROM char err_noentry_notchanged[] = "None\n";
 
 // Original strings (some now use consolidated strings)
-ROM char gpsmsg1[] = "RX active, awaiting lock\n",
-		gpsmsg2[] = "Sig acquired, sats=",
-		gpsmsg3[] = "Time sync OK\n",
-		gpsmsg5[] = "Lost sync\n",
-		gpsmsg6[] = "Sig lost, restarting\n",
-		gpsmsg7[] = "Data timeout\n",
-		gpsmsg8[] = "PPS timeout\n",
-		gpsmsg9[] = "Sig acquired\n",
-		saved[] = "Saved to EEPROM\n",
-		invalselection[] = "Invalid\n",
-		booting[] = "Rebooting...\n";
+ROM char gpsmsg1[] = "Awaiting lock\n",
+		gpsmsg2[] = "Acq, sats=",
+		gpsmsg3[] = "Sync OK\n",
+		gpsmsg5[] = "Sync lost\n",
+		gpsmsg6[] = "Lost, restart\n",
+		gpsmsg7[] = "Data TO\n",
+		gpsmsg8[] = "PPS TO\n",
+		gpsmsg9[] = "Acq\n",
+		saved[] = "OK\n",
+		invalselection[] = "Inv\n",
+		booting[] = "Reboot\n";
  
 // These remain in RAM as they may be modified at runtime in some contexts
-char 	badmix[] = "Host rejected MIX mode request\n",
- 	hosttmomsg[] = "Host response timeout\n";
+char 	badmix[] = "MIX rej\n",
+ 	hosttmomsg[] = "Host TO\n";
 
 // Use inline functions instead of macros to reduce code size
 ROM char log_gps_prefix[] = "GPS: ";
@@ -318,14 +319,14 @@ ROM char log_warn_prefix[] = "WARN: ";
 #define LOG_GPS_DEBUG(fmt, ...) do { if ((!indisplay) && (AppConfig.DebugLevel & 32)) { log_prefix(); printf("GPS-DEBUG: "); printf(fmt, ##__VA_ARGS__); } } while(0)
 
 // Common state names for consistency
-ROM char log_detected[] = "detected";
+ROM char log_detected[] = "det";
 ROM char log_lost[] = "lost";
-ROM char log_open[] = "open";
-ROM char log_closed[] = "closed";
-ROM char log_asserted[] = "asserted";
-ROM char log_deasserted[] = "de-asserted";
-ROM char log_rising[] = "Rising";
-ROM char log_falling[] = "Falling";
+ROM char log_open[] = "opn";
+ROM char log_closed[] = "cls";
+ROM char log_asserted[] = "on";
+ROM char log_deasserted[] = "off";
+ROM char log_rising[] = "Hi";
+ROM char log_falling[] = "Lo";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -2476,7 +2477,7 @@ void process_gps(void)
 			// Only log on status change to avoid spam
 			if (last_gprmc_status != current_status)
 			{
-				LOG_GPS("GPRMC status '%c' (void) - waiting for valid fix\n", current_status);
+				LOG_GPS("GPRMC '%c' void\n", current_status);
 				last_gprmc_status = current_status;
 			}
 			return;
@@ -2485,7 +2486,7 @@ void process_gps(void)
 		// Status is 'A' (valid) - log transition if changed
 		if (last_gprmc_status != 'A')
 		{
-			LOG_GPS("GPRMC status 'A' (valid) - acquiring UTC time\n");
+			LOG_GPS("GPRMC 'A' valid\n");
 			last_gprmc_status = 'A';
 		}			memset(&tm,0,sizeof(tm));
 			tm.tm_sec = twoascii(strs[1] + 4);
@@ -3707,11 +3708,11 @@ void secondary_processing_loop(void)
 				AppConfig.SqlNoiseGain = noise_gain;
 				if (!WVF) AppConfig.SqlDiode = caldiode;
 				SaveAppConfig();
-				LOG_SYS("Squelch calibrated, gain=%d\n", noise_gain);
+				LOG_SYS("Sql cal, gain=%d\n", noise_gain);
 
 				if (!WVF)
 				{
-					LOG_SYS("Diode calibrated, val=0x%04X\n", caldiode);
+					LOG_SYS("Diode cal=0x%04X\n", caldiode);
 				}
 			}
 
@@ -3750,7 +3751,7 @@ void secondary_processing_loop(void)
 		{
 			if (!last_ptt_logged)
 			{
-				LOG_TX("PTT %s (CW/hang mode)\n", log_asserted);
+				LOG_TX("PTT %s(CW)\n", log_asserted);
 				last_ptt_logged = 1;
 			}
 			host_ptt = 0;
@@ -3785,7 +3786,7 @@ void secondary_processing_loop(void)
 					{
 						if (!last_ptt_logged)
 						{
-							LOG_TX("PTT %s, buffer=%dms\n", log_asserted, AppConfig.TxBufferLength >> 3);
+							LOG_TX("PTT %s buf=%dms\n", log_asserted, AppConfig.TxBufferLength >> 3);
 							last_ptt_logged = 1;
 						}
 						host_ptt = 1;
@@ -3818,7 +3819,7 @@ void secondary_processing_loop(void)
 					{
 						if (!last_ptt_logged)
 						{
-							LOG_TX("PTT %s, buffer=%dms, timing=%ldms\n", log_asserted, AppConfig.TxBufferLength >> 3, z);
+							LOG_TX("PTT %s buf=%dms tim=%ldms\n", log_asserted, AppConfig.TxBufferLength >> 3, z);
 							last_ptt_logged = 1;
 						}
 						host_ptt = 1;
@@ -3831,7 +3832,7 @@ void secondary_processing_loop(void)
 			{
 				if (last_ptt_logged)
 				{
-					LOG_TX("PTT %s (disconnected)\n", log_deasserted);
+					LOG_TX("PTT %s(disc)\n", log_deasserted);
 					last_ptt_logged = 0;
 				}
 				host_ptt = 0;
@@ -3967,7 +3968,7 @@ void secondary_processing_loop(void)
 	/* Cold Power-Up Auto Reboot - trigger N minutes after cold boot */
 	if (cold_power_reboot_active && uptimer >= cold_power_reboot_target)
 	{
-		LOG_SYS("Cold pwr reboot\n");
+		LOG_SYS("Cold reboot\n");
 		RTCM_Reset();
 	}
 
@@ -3987,7 +3988,7 @@ void secondary_processing_loop(void)
 			     (AppConfig.RebootMode == 2 && tm->tm_wday == AppConfig.RebootDay)))
 			{
 				last_reboot_min = tm->tm_min;
-				LOG_SYS("Scheduled system reboot\n");
+				LOG_SYS("Sched reboot\n");
 				RTCM_Reset();
 			}
 			/* Clear flag when we move to a different minute */
@@ -4107,37 +4108,37 @@ void secondary_processing_loop(void)
 
 	if (dnsnotify == 1)
 	{
-		LOG_NET("DNS resolved %s -> ", AppConfig.VoterServerFQDN);
+		LOG_NET("DNS %s->", AppConfig.VoterServerFQDN);
 		printf(fmt_ip_newline,MyVoterAddr.v[0],MyVoterAddr.v[1],MyVoterAddr.v[2],MyVoterAddr.v[3]);
 	}
 	else if (dnsnotify == 2) 
 	{
-		LOG_WARN("DNS resolution failed for %s\n", AppConfig.VoterServerFQDN);
+		LOG_WARN("DNS fail %s\n", AppConfig.VoterServerFQDN);
 	}
 
 	dnsnotify = 0;
 
 	if (altdnsnotify == 1)
 	{
-		LOG_NET("DNS resolved %s (Alt) -> ", AppConfig.AltVoterServerFQDN);
+		LOG_NET("DNS %s(Alt)->", AppConfig.AltVoterServerFQDN);
 		printf(fmt_ip_newline,MyAltVoterAddr.v[0],MyAltVoterAddr.v[1],MyAltVoterAddr.v[2],MyAltVoterAddr.v[3]);
 	}
 	else if (altdnsnotify == 2) 
 	{
-		LOG_WARN("DNS resolution failed for %s (Alt)\n", AppConfig.AltVoterServerFQDN);
+		LOG_WARN("DNS fail %s(Alt)\n", AppConfig.AltVoterServerFQDN);
 	}
 
 	altdnsnotify = 0;
 	if (missed && (!misstimer))
 	{
-		LOG_PKT("Out of bounds, offset=%ld samples (%ldms)\n", -missed, (-missed * 125) / 1000);
+		LOG_PKT("OOB ofs=%ld samp (%ldms)\n", -missed, (-missed * 125) / 1000);
 		misstimer = MISS_REPORT_TIME;
 		missed = 0;
 	}
 
 	if ((!connected) && connrep)
 		{
-			LOG_NET("Disconn (%s) %d.%d.%d.%d:%d\n", (althost) ? "Alt" : "Pri",
+			LOG_NET("Disc(%s) %d.%d.%d.%d:%d\n", (althost) ? "Alt" : "Pri",
 				CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3],
 				AppConfig.VoterServerPort);
 			connrep = 0;
@@ -4145,7 +4146,7 @@ void secondary_processing_loop(void)
 		}
 		else if (connected && (!connrep))
 		{
-			LOG_NET("Conn (%s) %d.%d.%d.%d:%d\n", (althost) ? "Alt" : "Pri",
+			LOG_NET("Conn(%s) %d.%d.%d.%d:%d\n", (althost) ? "Alt" : "Pri",
 				CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3],
 				AppConfig.VoterServerPort);
 			connrep = 1;
@@ -4206,12 +4207,12 @@ void secondary_processing_loop(void)
 	if(dwLastIP != AppConfig.MyIPAddr.Val)
 	{
 		dwLastIP = AppConfig.MyIPAddr.Val;
-		LOG_NET("IP config: %s\n", AppConfig.Flags.bIsDHCPReallyEnabled ? "DHCP" : "Static");
-		LOG_NET("  IP: ");
+		LOG_NET("%s\n", AppConfig.Flags.bIsDHCPReallyEnabled ? "DHCP" : "Static");
+		LOG_NET("IP:");
 		printf(fmt_ip_newline,AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3]);
-		LOG_NET("  Mask: ");
+		LOG_NET("Mask:");
 		printf(fmt_ip_newline,AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3]);
-		LOG_NET("  Gateway: ");
+		LOG_NET("GW:");
 		printf(fmt_ip_newline,AppConfig.MyGateway.v[0],AppConfig.MyGateway.v[1],AppConfig.MyGateway.v[2],AppConfig.MyGateway.v[3]);
 
 		#if defined(STACK_USE_ANNOUNCE)
@@ -4518,8 +4519,9 @@ static void IPMenu()
 		"13 - DynHost (%s)\n",
 		menu7[] = 
 		"14 - BootIP (%d.%d.%d.%d) (%s)\n"
-		"15 - EthDpx (0=Half,1=Full) (%d)\n",
-		entsel[] = "Enter selection: ";
+		"15 - EthDpx (0=Half,1=Full) (%d)\n";
+
+		ROM char *entsel = str_enter_sel;
 
 		bootok = ((AppConfig.BootIPCheck == GetBootCS()));
 		printf(menu,AppConfig.DefaultIPAddr.v[0],AppConfig.DefaultIPAddr.v[1],
@@ -4775,26 +4777,27 @@ static void OffLineMenu()
 		int sel;
 		float f;
 
-	static /*ROM*/ char menu[] = "\nOffline Menu\n\n" 
-		"1  - Mode (0=OFF,1=Spx,2=Spx+Trg,3=Rpt) (%d)\n"
-		"2  - CW Speed x1/8000s (%u)\n"
-		"3  - PreCW x1/8000s (%u)\n"
-		"4  - PostCW x1/8000s (%u)\n",
+	static /*ROM*/ char menu[] = "\nOff\n\n" 
+		"1-Mod(%d)\n"
+		"2-CWSp(%u)\n"
+		"3-PreCW(%u)\n"
+		"4-PstCW(%u)\n",
 		menu1[] = 
-		"5  - CW OffID (%s)\n"
-		"6  - CW OnID (%s)\n"
-		"7  - ID Per x0.1s (%u)\n"
-		"8  - RptHang x0.1s (%u)\n",
+		"5-OffID(%s)\n"
+		"6-OnID(%s)\n"
+		"7-Per(%u)\n"
+		"8-Hang(%u)\n",
 		menu1a[] = 
-		"9  - CTCSS Hz (%.1f)\n"
-		"10 - CTCSS Lev (%d)\n"
-		"11 - NoDeemp (0=Norm,1=Off) (%d)\n"
-		"12 - Offline Delay Secs (%u)\n"
+		"9-PL(%.1f)\n"
+		"10-PLLv(%d)\n"
+		"11-Deemp(%d)\n"
+		"12-Delay(%u)\n"
 #if !defined(SMT_BOARD)
-		"13 - AuxOut (0=ConnStatus,1=Hi,2=Lo) (%d)\n"
+		"13-Aux(%d)\n"
 #endif
-		,
-		entsel[] = "Enter selection: ";
+		;
+
+		ROM char *entsel = str_enter_sel;
 
 		printf(menu,AppConfig.FailMode,AppConfig.CWSpeed,AppConfig.CWBeforeTime,AppConfig.CWAfterTime);
 		main_processing_loop();
@@ -4992,11 +4995,12 @@ static void SquelchMenu()
 		BOOL ok;
 		int sel;
 
-	static /*ROM*/ char menu[] = "\nSquelch Menu\n\n" 
-		"1  - Pot (0=HW,1=SW) (%d)\n"
-		"2  - Setting 1-1023 (%d)\n"
-		"3  - Hyst 1-100 (%d)\n",
-		entsel[] = "Enter selection: ";
+	static /*ROM*/ char menu[] = "\nSQL\n\n" 
+		"1-Pot(%d)\n"
+		"2-Set(%d)\n"
+		"3-Hyst(%d)\n";
+
+		ROM char *entsel = str_enter_sel;
 
 		printf(menu,AppConfig.Sqpot,AppConfig.Squelch,AppConfig.Hysteresis);
 		main_processing_loop();
@@ -5102,7 +5106,7 @@ static void AutoRebootMenu()
 		main_processing_loop();
 		menu_print_footer("Auto Reboot");
 		
-		switch(menu_get_input("Enter Selection: "))
+		switch(menu_get_input(str_enter_sel))
 		{
 			case 0: continue;
 			case 1: continue;
@@ -5200,8 +5204,8 @@ int main(void)
 	time_t t;
 	long mydiff,mydiff1;
 
-	static /*ROM*/ char defwritten[] = "\nDefault Values Written to EEPROM\n",
-			defdiode[] = "Diode Calibration Value Written to EEPROM\n";
+	static /*ROM*/ char defwritten[] = "\nDefaults written\n",
+			defdiode[] = "Diode cal written\n";
 			
 	// Save RCON value immediately at startup, then clear status bits per dsPIC manual
 	saved_rcon = RCON;
@@ -5238,66 +5242,60 @@ int main(void)
 		"21 - DSP/BEW [N/A]\n\n"
 #endif
 		"97 - RX Level\n"
-		"98 - Status\n",
-		entsel[] = "Enter selection: ";
+		"98 - Status\n";
+
+		ROM char *entsel = str_enter_sel;
 
 
-	static ROM char oprdata[] = "\nVOTER Client Status\n\n"
-		"== System ==\n"
-		"Ver:    %s\n"
-		"Ser:    %u\n"
-		"Up:     %lu.%lu sec\n",
-		curtimeis[] = "UTC:    %s.%03lu\n",
-		startuptime[] = "Start:  %s\n\n",
+	static ROM char oprdata[] = "\nVOTER Status\n\n"
+		"= Sys =\n"
+		"Ver:%s\n"
+		"Ser:%u\n"
+		"Up:%lu.%lus\n",
+		curtimeis[] = "UTC:%s.%03lu\n",
+		startuptime[] = "Start:%s\n\n",
 	oprdata_net[] = 
-		"== Network ==\n"
-		"MAC:  %02X:%02X:%02X:%02X:%02X:%02X\n"
-		"DHCP: %s\n"
-		"IP:   %d.%d.%d.%d\n"
-		"Mask: %d.%d.%d.%d\n"
-		"GW:   %d.%d.%d.%d\n"
-		"DNS1: %d.%d.%d.%d\n"
-		"DNS2: %d.%d.%d.%d\n"
-		"Port: %u\n\n",
+		"= Net =\n"
+		"MAC:%02X:%02X:%02X:%02X:%02X:%02X\n"
+		"DHCP:%s\n"
+		"IP:%d.%d.%d.%d\n"
+		"Mask:%d.%d.%d.%d\n"
+		"GW:%d.%d.%d.%d\n"
+		"DNS1:%d.%d.%d.%d\n"
+		"DNS2:%d.%d.%d.%d\n"
+		"Port:%u\n\n",
 	oprdata_gps[] = 
-		"== GPS ==\n"
-		"Proto: %s\n"
-		"State: %s\n"
-		"Sync:  %s\n"
-		"Sats:  %d\n"
-		"PPSErr: %s\n\n",
-	oprdata_gps1[] = "Ofs: %ld sec\n\n",
+		"= GPS =\n"
+		"Proto:%s\n"
+		"State:%s\n"
+		"Sync:%s\n"
+		"Sats:%d\n"
+		"PPSErr:%s\n\n",
+	oprdata_gps1[] = "Ofs:%lds\n\n",
 	oprdata_voter[] = 
-		"== VOTER ==\n"
-		"Conn: %s\n"
-		"SvrIP: %d.%d.%d.%d\n"
-		"Port: %u\n",
+		"= VOTER =\n"
+		"Conn:%s\n"
+		"Svr:%d.%d.%d.%d\n"
+		"Port:%u\n",
 	oprdata_radio[] = 
-		"== Radio ==\n"
-		"COR:   %s\n"
-		"CTCSS: %s\n"
-		"PTT:   %s\n"
-		"RSSI:  %d\n"
-		"Rate:  %d sps\n"
-		"Peak:  %u\n"
-		"TxBuf: %d ms\n"
-		"SqlGn: %d\n"
-		"SqlDi: %d\n"
-		"SqlLv: %d\n"
-		"SqlHy: %d\n\n",
+		"= Radio =\n"
+		"COR:%s\n"
+		"CTCSS:%s\n"
+		"PTT:%s\n"
+		"RSSI:%d\n"
+		"Rate:%dsps\n"
+		"Peak:%u\n"
+		"TxBuf:%dms\n"
+		"SqlGn:%d\n"
+		"SqlDi:%d\n"
+		"SqlLv:%d\n"
+		"SqlHy:%d\n\n",
 	oprdata_rcon[] =
-		"== RCON (Reset Flags) ==\n"
+		"= RCON =\n"
 		"Val=0x%04X\n"
-		"TRAPR: %s (Trap conflict)\n"
-		"IOPWR: %s (Illegal opcode/uninit)\n"
-		"CM:    %s (Config mismatch)\n"
-		"EXTR:  %s (MCLR reset)\n"
-		"SWR:   %s (RESET instruction)\n"
-		"WDTO:  %s (Watchdog timeout)\n"
-		"SLEEP: %s (PWRSAV #SLEEP)\n"
-		"IDLE:  %s (PWRSAV #IDLE)\n"
-		"BOR:   %s (Brown-out reset)\n"
-		"POR:   %s (Power-on reset)\n\n";
+		"TRAP:%s IO:%s CM:%s\n"
+		"EXTR:%s SW:%s WD:%s\n"
+		"SLEP:%s IDL:%s BOR:%s POR:%s\n\n";
 
 
 	portasave = 0;	
@@ -5577,7 +5575,7 @@ int main(void)
 
 	SetCTCSSTone(AppConfig.CTCSSTone,AppConfig.CTCSSLevel);
 
-	LOG_SYS("Firmware v%s\n", VERSION);
+	LOG_SYS("FW v%s\n", VERSION);
 	LOG_SYS("Serial=%04X, MAC=%02X:%02X:%02X:%02X:%02X:%02X\n", 
 		AppConfig.SerialNumber,
 		AppConfig.MyMACAddr.v[0], AppConfig.MyMACAddr.v[1], AppConfig.MyMACAddr.v[2],
@@ -5609,7 +5607,7 @@ int main(void)
 	{
 		cold_power_reboot_active = TRUE;
 		cold_power_reboot_target = (DWORD)AppConfig.RebootColdPowerMins * 600;  // uptimer ticks at 10Hz
-		LOG_SYS("Cold pwr reboot in %um\n", AppConfig.RebootColdPowerMins);
+		LOG_SYS("Cold reboot %um\n", AppConfig.RebootColdPowerMins);
 	}
 
 	while(1) 
