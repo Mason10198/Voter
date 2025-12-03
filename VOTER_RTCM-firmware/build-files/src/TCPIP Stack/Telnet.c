@@ -127,18 +127,86 @@ extern char VERSION[];
 
 // Simple helpers for redaction
 static inline BOOL is_digit(BYTE c) { return (c >= '0') && (c <= '9'); }
+static inline BOOL is_hostname_char(BYTE c) { return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '.' || c == '_'); }
 
-// Redact IPv4 dotted quads.
+// Redact IPv4 dotted quads and hostnames/FQDNs in DNS-related messages.
 // - If in the form " (IPv4)", remove the entire parenthesized block including the leading space
 // - If in the form "(IPv4)", remove the entire parenthesized block
 // - Otherwise, replace bare IPv4 tokens with "[redacted]"
+// - Replace hostnames/FQDNs/IPs in "DNS resolution failed for <host>" with "[redacted]"
+// - Replace hostnames/FQDNs/IPs in "DNS resolved <host> ->" or "DNS resolved <host> (Alt) ->" with "[redacted]"
 // Returns number of bytes written to out (<= cap).
 static WORD redact_ips(const BYTE* s, WORD len, BYTE* out, WORD cap)
 {
 	WORD i = 0, o = 0;
 	const BYTE repl[] = "[redacted]"; // length 10
+	const BYTE dns_fail_pat[] = "DNS resolution failed for ";
+	const BYTE dns_resolved_pat[] = "DNS resolved ";
+	
 	while(i < len && o < cap)
 	{
+		// Case 0a: "DNS resolution failed for <host>" — redact host (hostname/FQDN/IP)
+		// This handles both "DNS resolution failed for <host>\n" and "DNS resolution failed for <host> (Alt)\n"
+		if(i + sizeof(dns_fail_pat) - 1 <= len)
+		{
+			BOOL match = TRUE;
+			WORD k;
+			for(k = 0; k < sizeof(dns_fail_pat) - 1; k++)
+			{
+				if(s[i + k] != dns_fail_pat[k]) { match = FALSE; break; }
+			}
+			if(match)
+			{
+				// Copy the pattern
+				for(k = 0; k < sizeof(dns_fail_pat) - 1 && o < cap; k++)
+					out[o++] = s[i++];
+				
+				// Skip the host (hostname/FQDN/IP) and replace with [redacted]
+				// The host continues until we hit a space, newline, or end of string
+				WORD j = i;
+				while(j < len && s[j] != ' ' && s[j] != '\n' && s[j] != '\r') j++;
+				
+				if(j > i) // Found a host
+				{
+					// Insert [redacted]
+					for(k = 0; k < sizeof(repl) - 1 && o < cap; k++)
+						out[o++] = repl[k];
+					i = j;
+					continue;
+				}
+			}
+		}
+		
+		// Case 0b: "DNS resolved <host> ->" or "DNS resolved <host> (Alt) ->" — redact host
+		if(i + sizeof(dns_resolved_pat) - 1 <= len)
+		{
+			BOOL match = TRUE;
+			WORD k;
+			for(k = 0; k < sizeof(dns_resolved_pat) - 1; k++)
+			{
+				if(s[i + k] != dns_resolved_pat[k]) { match = FALSE; break; }
+			}
+			if(match)
+			{
+				// Copy the pattern
+				for(k = 0; k < sizeof(dns_resolved_pat) - 1 && o < cap; k++)
+					out[o++] = s[i++];
+				
+				// Skip the host (hostname/FQDN/IP) until we hit a space
+				// The host continues until the next space (before " ->" or " (Alt)")
+				WORD j = i;
+				while(j < len && s[j] != ' ') j++;
+				
+				if(j > i) // Found a host
+				{
+					// Insert [redacted]
+					for(k = 0; k < sizeof(repl) - 1 && o < cap; k++)
+						out[o++] = repl[k];
+					i = j;
+					continue;
+				}
+			}
+		}
 
 		// Case 1: " (IPv4)" — remove whole block (and the leading space)
 		if(s[i] == ' ' && (i + 1) < len && s[i+1] == '(')
