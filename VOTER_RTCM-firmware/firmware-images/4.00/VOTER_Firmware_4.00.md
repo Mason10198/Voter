@@ -8,6 +8,13 @@ This document outlines the major functional improvements, behavior changes, and 
 
 ---
 
+# Upgrading
+Upgrading from any VOTER firmware version to 4.00 is directly compatible.
+
+No settings will be changed and no data will be lost when upgrading.
+
+---
+
 # 1. Major Functional Improvements
 
 ## 1.1 DSPBEW Always Included
