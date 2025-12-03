@@ -5702,14 +5702,17 @@ int main(void)
 		if ((((sel >= 1) && (sel <= 21)) || (sel == 11780) || (sel == 1103) || (sel == 1170)) && (sel != 21))
 #endif
 		{
-			/* If user selected Debug Level (20), print the bit descriptions first */
-				if (sel == 20)
-				{
-					printf("\n1-RX/TX log 2-Stats 16-NoTOS 32-GPS 64-FixGPS\n"
-						"Sum values (e.g. 3=1+2)\n\n");
-				}
-
-			printf(str_enter_newval);
+		/* If user selected Debug Level (20), print the bit descriptions first */
+			if (sel == 20)
+			{
+				printf("Debug Options\n\n"
+					"1-RX/TX log\n"
+					"2-Stats\n"
+					"16-NoTOS\n"
+					"32-GPS\n"
+					"64-FixGPS\n\n"
+					"Note: Sum values (e.g. 3=1+2)\n\n");
+			}			printf(str_enter_newval);
 
 			if (aborted) continue;
 
