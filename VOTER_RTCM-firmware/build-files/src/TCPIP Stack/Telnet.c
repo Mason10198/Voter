@@ -141,6 +141,7 @@ static WORD redact_ips(const BYTE* s, WORD len, BYTE* out, WORD cap)
 	WORD i = 0, o = 0;
 	const BYTE repl[] = "[redacted]"; // length 10
 	const BYTE dns_fail_pat[] = "DNS resolution failed for ";
+	const BYTE dns_fail_short_pat[] = "DNS fail ";
 	const BYTE dns_resolved_pat[] = "DNS resolved ";
 	
 	while(i < len && o < cap)
@@ -165,6 +166,38 @@ static WORD redact_ips(const BYTE* s, WORD len, BYTE* out, WORD cap)
 				// The host continues until we hit a space, newline, or end of string
 				WORD j = i;
 				while(j < len && s[j] != ' ' && s[j] != '\n' && s[j] != '\r') j++;
+				
+				if(j > i) // Found a host
+				{
+					// Insert [redacted]
+					for(k = 0; k < sizeof(repl) - 1 && o < cap; k++)
+						out[o++] = repl[k];
+					i = j;
+					continue;
+				}
+			}
+		}
+		
+		// Case 0a2: "DNS fail <host>" — redact host (hostname/FQDN/IP)
+		// This handles both "DNS fail <host>\n" and "DNS fail <host>(Alt)\n"
+		if(i + sizeof(dns_fail_short_pat) - 1 <= len)
+		{
+			BOOL match = TRUE;
+			WORD k;
+			for(k = 0; k < sizeof(dns_fail_short_pat) - 1; k++)
+			{
+				if(s[i + k] != dns_fail_short_pat[k]) { match = FALSE; break; }
+			}
+			if(match)
+			{
+				// Copy the pattern
+				for(k = 0; k < sizeof(dns_fail_short_pat) - 1 && o < cap; k++)
+					out[o++] = s[i++];
+				
+				// Skip the host (hostname/FQDN/IP) and replace with [redacted]
+				// The host continues until we hit a newline or end of string
+				WORD j = i;
+				while(j < len && s[j] != '\n' && s[j] != '\r') j++;
 				
 				if(j > i) // Found a host
 				{
