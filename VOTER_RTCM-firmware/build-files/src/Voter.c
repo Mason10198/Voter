@@ -521,8 +521,10 @@ char *cwptr;
 WORD cwtimer;
 BYTE cwidx;
 WORD cwtimer1;
+WORD cwid_ptt_delay_timer;
 BOOL connrep;
 BYTE connfail;
+BOOL ever_connected;
 WORD failtimer;
 WORD hangtimer;
 WORD dsecondtimer;
@@ -1905,43 +1907,17 @@ static inline void SetConnStatus(BOOL val)
 {
 	BYTE oldout;
 	BOOL actual_val;
-	BOOL desired_output;
 	
 	// Check AuxOutMode: 0=ConnStatus, 1=Force High, 2=Force Low
 	if (AppConfig.AuxOutMode == 1)
-		desired_output = 1;  // Force High
+		actual_val = 1;  // Force High
 	else if (AppConfig.AuxOutMode == 2)
-		desired_output = 0;  // Force Low
+		actual_val = 0;  // Force Low
 	else
-		desired_output = val;  // Auto (use provided value)
+		actual_val = val;  // Auto (use provided value)
 	
-	// Apply delay for offline transitions (when going from 1->0)
-	// Only apply delay when in auto mode (AuxOutMode == 0)
-	if (AppConfig.AuxOutMode == 0 && AppConfig.OfflineDelay > 0)
-	{
-		if (desired_output == 0)  // Transitioning to offline
-		{
-			// Timer is in 10ms units, OfflineDelay is in seconds
-			// Convert seconds to 10ms units: seconds * 100
-			if (conn_status_offline_timer >= (AppConfig.OfflineDelay * 100))
-			{
-				actual_val = 0;
-			}
-			else
-			{
-				actual_val = 1;  // Maintain online status during delay period
-			}
-		}
-		else  // Transitioning to or maintaining online
-		{
-			actual_val = 1;
-		}
-	}
-	else
-	{
-		// No delay - use desired output directly
-		actual_val = desired_output;
-	}
+	// Note: Offline delay is handled by the caller using delayed_connected variable
+	// This function just sets the output based on the value provided
 	
 	oldout = IOExpOutB;
 	IOExpOutB &= ~0x80;
@@ -2088,6 +2064,7 @@ static void domorse(char *str)
 
 		cwtimer1 = AppConfig.CWBeforeTime;
 		cwptr = str;
+		cwid_ptt_delay_timer = 24;  // 100ms delay @ ~4.125ms per tick
 	}
 }
 
@@ -2424,7 +2401,6 @@ void process_gps(void)
 		if (USE_PPS)
 		{
 			connected = 0;
-			SetConnStatus(0);
 			txseqno = 0;
 			txseqno_ptt = 0;
 			resp_digest = 0;
@@ -2540,7 +2516,6 @@ void process_gps(void)
 			if (USE_PPS)
 			{
 				connected = 0;
-				SetConnStatus(0);
 				txseqno = 0;
 				txseqno_ptt = 0;
 				resp_digest = 0;
@@ -2692,7 +2667,6 @@ void process_gps(void)
 				if (USE_PPS)
 				{
 					connected = 0;
-					SetConnStatus(0);
 					txseqno = 0;
 					txseqno_ptt = 0;
 					resp_digest = 0;
@@ -3060,7 +3034,6 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			if (strcmp((char *)audio_packet.vph.challenge,their_challenge))
 			{
 				connected = 0;
-				SetConnStatus(0);
 				txseqno = 0;
 				txseqno_ptt = 0;
 				lastrxtimer = 0;
@@ -3079,17 +3052,15 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				{
 					digest = mydigest;
 			
-					if (!connected) 
-					{
-						gpsforcetimer = 0;
-						ptt_ignore_timer = 0;
-					}
-			
-						connected = 1;
-						SetConnStatus(1);
-						lastrxtimer = 0;
-				
-						if (n > sizeof(VOTER_PACKET_HEADER)) option_flags = audio_packet.rssi;
+				if (!connected) 
+				{
+					gpsforcetimer = 0;
+					ptt_ignore_timer = 0;
+				}
+		
+					connected = 1;
+					ever_connected = 1;
+					lastrxtimer = 0;						if (n > sizeof(VOTER_PACKET_HEADER)) option_flags = audio_packet.rssi;
 						else option_flags = 0;
 				
 						if ((!USE_PPS) && (!(option_flags & OPTION_FLAG_MIX)))
@@ -3097,7 +3068,6 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							if (n > sizeof(VOTER_PACKET_HEADER)) gotbadmix = 1; 
 
 							connected = 0;
-							SetConnStatus(0);
 							txseqno = 0;
 							txseqno_ptt = 0;
 							digest = 0;
@@ -3106,36 +3076,32 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						}
 						else SetAudioSrc();
 					}
-					else
-					{
-						connected = 0;
-						SetConnStatus(0);
-						txseqno = 0;
-						txseqno_ptt = 0;
-						digest = 0;
-						lastrxtimer = 0;
-						SetAudioSrc();
-					}
-				}
-			else
-			{
-				BYTE wconnected;
-			
-				wconnected = connected;
-
-				if (!connected) 
+				else
 				{
-					gpsforcetimer = 0;
-					ptt_ignore_timer = 0;
+					connected = 0;
+					txseqno = 0;
+					txseqno_ptt = 0;
+					digest = 0;
+					lastrxtimer = 0;
+					SetAudioSrc();
 				}
+			}
+		else
+		{
+		BYTE wconnected;			wconnected = connected;
 
-					connected = 1;
-					SetConnStatus(1);
-					lastrxtimer = 0;
+			if (!connected) 
+			{
+				gpsforcetimer = 0;
+				ptt_ignore_timer = 0;
+			}
 
-					if (!wconnected) SetAudioSrc();
+				connected = 1;
+				ever_connected = 1;
+				// Don't call SetConnStatus here - let secondary_processing_loop handle it with delay logic
+				lastrxtimer = 0;
 
-					lastrxtimer = 0;
+				if (!wconnected) SetAudioSrc();					lastrxtimer = 0;
 
 					if (ntohs(audio_packet.vph.payload_type) == 5) // PING
 					{
@@ -3305,7 +3271,6 @@ void main_processing_loop(void)
 	if(!MACIsLinked())
 	{
 		connected = 0;
-		SetConnStatus(0);
 		txseqno = 0;
 		txseqno_ptt = 0;
 		resp_digest = 0;
@@ -3440,7 +3405,6 @@ void main_processing_loop(void)
 			if (lastalthost == althost)
 			{
 				connected = 0;
-				SetConnStatus(0);
 				txseqno = 0;
 				txseqno_ptt = 0;
 				resp_digest = 0;
@@ -3458,7 +3422,6 @@ void main_processing_loop(void)
 		{
 			hosttimedout = 1;
 			connected = 0;
-			SetConnStatus(0);
 			txseqno = 0;
 			txseqno_ptt = 0;
 			resp_digest = 0;
@@ -3580,7 +3543,6 @@ void secondary_processing_loop(void)
 			if (USE_PPS)
 			{
 				connected = 0;
-				SetConnStatus(0);
 				resp_digest = 0;
 				digest = 0;
 				their_challenge[0] = 0;
@@ -3605,7 +3567,6 @@ void secondary_processing_loop(void)
 			last_gps_state_logged = GPS_STATE_IDLE;
 			last_gotpps_logged = 0;
 			connected = 0;
-			SetConnStatus(0);
 			resp_digest = 0;
 			digest = 0;
 			their_challenge[0] = 0;
@@ -3657,7 +3618,7 @@ void secondary_processing_loop(void)
 						vnoise32 = ((vnoise32 * 3) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 2;
 				}
 
-			if ((connected == 0 && (AppConfig.OfflineDelay == 0 || conn_status_offline_timer >= (AppConfig.OfflineDelay * 100))) && 
+			if ((connected == 0 && (AppConfig.OfflineDelay == 0 || conn_status_offline_timer >= (AppConfig.OfflineDelay * 242))) && 
 				(!qualcor) && wascor && (gpssync || (!USE_PPS) || (!SIMULCAST_ENABLE)))
 			{
 				if (AppConfig.FailMode == 2) needburp = 1;
@@ -3726,15 +3687,27 @@ void secondary_processing_loop(void)
 	{
 		conn_status_offline_timer = 0;  // Reset timer when online
 	}
-	else if (AppConfig.OfflineDelay > 0 && conn_status_offline_timer < (AppConfig.OfflineDelay * 100))
+	else if (AppConfig.OfflineDelay > 0 && conn_status_offline_timer < (AppConfig.OfflineDelay * 242))
 	{
 		conn_status_offline_timer++;  // Increment timer during offline delay period
+	}
+	
+	// Update connection status output with delay applied
+	// Only apply delay if we've been connected before (ever_connected) and are now disconnected
+	// This prevents showing "connected" at startup before first connection
+	if (ever_connected && AppConfig.OfflineDelay > 0 && !connected && conn_status_offline_timer < (AppConfig.OfflineDelay * 242))
+	{
+		SetConnStatus(1);  // Delay not yet expired, show as connected during delay period
+	}
+	else
+	{
+		SetConnStatus(connected);  // Show actual connection state (delay expired or not configured)
 	}
 	
 	// Calculate delayed connected state (applies offline delay)
 	// If delay is configured and timer hasn't expired yet, treat as still connected
 	isoffline = ((!connected || (AppConfig.OfflineDelay > 0 && connected == 0 && 
-		conn_status_offline_timer < (AppConfig.OfflineDelay * 100))) ? 0 : 1);
+		conn_status_offline_timer < (AppConfig.OfflineDelay * 242))) ? 0 : 1);
 	isoffline = (!isoffline) && (AppConfig.FailMode == 3);
 
 		if ((isoffline || DUPLEX3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
@@ -3747,16 +3720,23 @@ void secondary_processing_loop(void)
 		} 
 		else repeatit = 0;
 
+		// Decrement CWID PTT delay timer if active
+		if (cwid_ptt_delay_timer > 0) cwid_ptt_delay_timer--;
+
 		if (cwptr || cwtimer1 || hangtimer)
 		{
-			if (!last_ptt_logged)
+			// Only assert PTT if delay timer has expired (allows GPB7 to stabilize first)
+			if (cwid_ptt_delay_timer == 0)
 			{
-				LOG_TX("PTT %s(CW)\n", log_asserted);
-				last_ptt_logged = 1;
+				if (!last_ptt_logged)
+				{
+					LOG_TX("PTT %s(CW)\n", log_asserted);
+					last_ptt_logged = 1;
+				}
+				host_ptt = 0;
+				ptt = 1;
+				SetPTT(1);
 			}
-			host_ptt = 0;
-			ptt = 1;
-			SetPTT(1);
 		}
 		else
 		{
@@ -4160,10 +4140,10 @@ void secondary_processing_loop(void)
 		}
 
 		// Use delayed connection state for offline CW ID
-		BOOL delayed_connected = (connected || (AppConfig.OfflineDelay > 0 && conn_status_offline_timer < (AppConfig.OfflineDelay * 100)));
+		BOOL delayed_connected = (connected || (AppConfig.OfflineDelay > 0 && conn_status_offline_timer < (AppConfig.OfflineDelay * 242)));
 		
 		if (delayed_connected && (!connfail)) connfail = 1;
-		else if (AppConfig.FailMode && (!cwptr) && (!cwtimer1) && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
+		else if (ever_connected && AppConfig.FailMode && (!cwptr) && (!cwtimer1) && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
 		{
 			if (delayed_connected)
 			{
@@ -4193,7 +4173,7 @@ void secondary_processing_loop(void)
 
 		if (delayed_connected) needburp = 0;
 
-		if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0] && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
+		if (ever_connected && needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0] && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
 		{
 			needburp = 0;
 			if (!connfail) connfail = 2;
@@ -5304,7 +5284,6 @@ int main(void)
 	filled = 0;
 	time_filled = 0;
 	connected = 0;
-	SetConnStatus(0);
 	lastrxtimer = 0;
 	memclr((char *)audio_buf,FRAME_SIZE * 2);
 	gps_bufindex = 0;
@@ -5399,8 +5378,10 @@ int main(void)
 	cwtimer = 0;
 	cwidx = 0;
 	cwtimer1 = 0;
+	cwid_ptt_delay_timer = 0;
 	connrep = 0;
 	connfail = 0;
+	ever_connected = 0;
 	failtimer = 0;
 	hangtimer = 0;
 	dsecondtimer = 0;
@@ -5420,6 +5401,7 @@ int main(void)
 	altchange = 0;
 	altchange1 = 0;
 	glasertimer = 0;
+	conn_status_offline_timer = 0;
 	uptimer = 0;
 	pingtimer = 0;
 	secondtimer = 0;
