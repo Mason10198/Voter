@@ -4449,9 +4449,10 @@ static int menu_get_input(ROM char *prompt)
 /* Print common menu footer with navigation options */
 	static void menu_print_footer(ROM char *menu_name)
 {
-	printf("99 - Save to EEPROM\n"
+	printf("\n99 - Save to EEPROM\n"
 		"x  - Exit %s\n"
-		"\nq  - Disconnect, r - Reboot\n", menu_name);
+		"q  - Disconnect\n"
+		"r - Reboot\n", menu_name);
 	
 	// Display cold power reboot timer warning if active
 	if (cold_power_reboot_active && uptimer < cold_power_reboot_target)
@@ -4499,7 +4500,7 @@ static void IPMenu()
 		"13 - DynHost (%s)\n",
 		menu7[] = 
 		"14 - BootIP (%d.%d.%d.%d) (%s)\n"
-		"15 - EthDpx (0=Half,1=Full) (%d)\n";
+		"15 - EthDpx [0=Half,1=Full] (%d)\n";
 
 		ROM char *entsel = str_enter_sel;
 
@@ -4758,22 +4759,22 @@ static void OffLineMenu()
 		float f;
 
 	static /*ROM*/ char menu[] = "\nOffline Menu\n\n" 
-		"1  - Mode (0=OFF,1=Spx,2=Spx+Trg,3=Rpt) (%d)\n"
-		"2  - CW Speed x1/8000s (%u)\n"
-		"3  - PreCW x1/8000s (%u)\n"
-		"4  - PostCW x1/8000s (%u)\n",
+		"1  - Mode [0=OFF,1=Spx,2=Spx+Trg,3=Rpt] (%d)\n"
+		"2  - CW Speed [x1/8000s] (%u)\n"
+		"3  - PreCW [x1/8000s] (%u)\n"
+		"4  - PostCW [x1/8000s] (%u)\n",
 		menu1[] = 
 		"5  - CW OffID (%s)\n"
 		"6  - CW OnID (%s)\n"
-		"7  - ID Per x0.1s (%u)\n"
-		"8  - RptHang x0.1s (%u)\n",
+		"7  - ID Per [x0.1s] (%u)\n"
+		"8  - RptHang [x0.1s] (%u)\n",
 		menu1a[] = 
-		"9  - CTCSS Hz (%.1f)\n"
+		"9  - CTCSS [Hz] (%.1f)\n"
 		"10 - CTCSS Lev (%d)\n"
-		"11 - NoDeemp (0=Norm,1=Off) (%d)\n"
-		"12 - Offline Delay Secs (%u)\n"
+		"11 - NoDeemp [0=Norm,1=Off] (%d)\n"
+		"12 - Offline Delay [s] (%u)\n"
 #if !defined(SMT_BOARD)
-		"13 - AuxOut (0=ConnStatus,1=Hi,2=Lo) (%d)\n"
+		"13 - AuxOut [0=ConnStatus,1=Hi,2=Lo] (%d)\n"
 #endif
 		;
 
@@ -4976,9 +4977,9 @@ static void SquelchMenu()
 		int sel;
 
 	static /*ROM*/ char menu[] = "\nSquelch Menu\n\n" 
-		"1  - Pot (0=HW,1=SW) (%d)\n"
-		"2  - Setting 1-1023 (%d)\n"
-		"3  - Hyst 1-100 (%d)\n";
+		"1  - Pot [0=HW,1=SW] (%d)\n"
+		"2  - Sql Setting [1-1023] (%d)\n"
+		"3  - Hyst [1-100] (%d)\n";
 
 		ROM char *entsel = str_enter_sel;
 
@@ -5075,11 +5076,11 @@ static void AutoRebootMenu()
 		printf(
 			"\nAuto Reboot Menu - UTC: %s\n\n"
 
-			"1 - Sched (0=Off,1=Daily,2=Wkly) (%u)\n"
-			"2 - Day (0=Sun...6=Sat) (%u)\n"
+			"1 - Sched [0=Off,1=Daily,2=Wkly] (%u)\n"
+			"2 - Day [0=Sun...6=Sat] (%u)\n"
 			"3 - Hour (%u)\n"
 			"4 - Min (%u)\n"
-			"5 - Cold Power Reboot Mins (0=Off) (%u)\n\n",
+			"5 - Cold Power Reboot [m] (0=Off) (%u)\n\n",
 			get_utc_time(),
 			AppConfig.RebootMode, AppConfig.RebootDay, AppConfig.RebootHour, 
 			AppConfig.RebootMinute, AppConfig.RebootColdPowerMins);
@@ -5203,17 +5204,17 @@ int main(void)
 		"8  - Host Pass (%s)\n\n",
 		menu3[] = 
 		"9  - GPS Baud (%lu)\n"
-		"10 - GPS SerPol (0=Norm,1=Inv) (%d)\n"
-		"11 - PPS Pol (0=Norm,1=Inv,2=OFF) (%d)\n"
-		"12 - GPS Proto (0=NMEA,1=TSIP) (%d)\n"
-		"13 - GPS Type (0=Norm,1=Tbolt) (%d)\n"
-		"14 - GPS TimeOfs (sec) (%lu)\n\n",
+		"10 - GPS SerPol [0=Norm,1=Inv] (%d)\n"
+		"11 - PPS Pol [0=Norm,1=Inv,2=OFF] (%d)\n"
+		"12 - GPS Proto [0=NMEA,1=TSIP] (%d)\n"
+		"13 - GPS Type [0=Norm,1=Tbolt] (%d)\n"
+		"14 - GPS TimeOfs [s] (%lu)\n\n",
 		menu4[] = 
-		"15 - ExtCTCSS (0=Ign,1=Norm,2=Inv) (%d)\n"
-		"16 - COR (0=Norm,1=Ign,2=NoRX) (%d)\n"
-		"17 - Duplex3 (0=OFF,1-255x0.1s) (%u)\n"
-		"18 - TxBuf Len (%d)\n"
-		"19 - Launch Delay (x200ns,>0=ON) (%u)\n\n",
+		"15 - ExtCTCSS [0=Ign,1=Norm,2=Inv] (%d)\n"
+		"16 - COR [0=Norm,1=Ign,2=NoRX] (%d)\n"
+		"17 - Duplex3 [0=OFF,1-255x0.1s] (%u)\n"
+		"18 - TxBuf Len [x1/8000s] (%d)\n"
+		"19 - Launch Delay [x200ns,>0=ON] (%u)\n\n",
 		menu5[] = 
 		"20 - Debug Opts (%lu)\n"
 #ifdef	DSPBEW
