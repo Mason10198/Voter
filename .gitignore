@@ -57,6 +57,3 @@ dkms.conf
 # Compiler Stuff
 *.cof
 *.mcs
-
-# Temporary while developing
-*.cry

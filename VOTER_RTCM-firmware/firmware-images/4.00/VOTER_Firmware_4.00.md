@@ -56,24 +56,24 @@ Enter Selection (1-19,81-82,97-99,i,o,s,r,q,d) :
 2  - Client Pass (abcdefghijklmnopqr)
 3  - Local Port (0)
 
-4  - Server FQDN (node55199)
+4  - Server FQDN (n0call.dyndns.net)
 5  - Server Port (1667)
 6  - AltSvr FQDN ()
 7  - AltSvr Port (0)
 8  - Host Pass (abcdefghijklmnopqr)
 
 9  - GPS Baud (9600)
-10 - GPS SerPol (0=Norm,1=Inv) (1)
-11 - PPS Pol (0=Norm,1=Inv,2=OFF) (0)
-12 - GPS Proto (0=NMEA,1=TSIP) (0)
-13 - GPS Type (0=Norm,1=Tbolt) (0)
-14 - GPS TimeOfs (sec) (0)
+10 - GPS SerPol [0=Norm,1=Inv] (1)
+11 - PPS Pol [0=Norm,1=Inv,2=OFF] (0)
+12 - GPS Proto [0=NMEA,1=TSIP] (0)
+13 - GPS Type [0=Norm,1=Tbolt] (0)
+14 - GPS TimeOfs [s] (0)
 
-15 - ExtCTCSS (0=Ign,1=Norm,2=Inv) (0)
-16 - COR (0=Norm,1=Ign,2=NoRX) (0)
-17 - Duplex3 (0=OFF,1-255x0.1s) (0)
-18 - TxBuf Len (3000)
-19 - Launch Delay (x200ns,>0=ON) (0)
+15 - ExtCTCSS [0=Ign,1=Norm,2=Inv] (1)
+16 - COR [0=Norm,1=Ign,2=NoRX] (0)
+17 - Duplex3 [0=OFF,1-255x0.1s] (0)
+18 - TxBuf Len [x1/8000s] (3000)
+19 - Launch Delay [x200ns,>0=ON] (0)
 
 20 - Debug Opts (0)
 21 - DSP/BEW (0)
@@ -152,7 +152,7 @@ Allows you to define how long the unit must remain offline before entering offli
 ```
 Offline Menu
 ...
-12 - Offline Delay Secs (0)
+12 - Offline Delay [s] (0)
 ```
 
 ## 2.2 Hardware Connection Status Output
@@ -162,7 +162,7 @@ Offline Menu
 ```
 Offline Menu
 ...
-13 - AuxOut (0=ConnStatus,1=Hi,2=Lo) (0)
+13 - AuxOut [0=ConnStatus,1=Hi,2=Lo] (0)
 ```
 
 This gives external equipment clear, reliable visibility of link state.
@@ -197,10 +197,10 @@ SLEP:N IDL:N BOR:N POR:N
 You can now configure automatic reboots at scheduled times. This helps long-running installations maintain consistent operation.
 
 ```
-Auto Reboot Menu - UTC: 2025/12/02 21:53:47.780
+Auto Reboot Menu - UTC: 2025/12/05 04:31:35.540
 
-1 - Sched (0=Off,1=Daily,2=Wkly) (0)
-2 - Day (0=Sun...6=Sat) (0)
+1 - Sched [0=Off,1=Daily,2=Wkly] (0)
+2 - Day [0=Sun...6=Sat] (0)
 3 - Hour (0)
 4 - Min (0)
 ```
@@ -209,16 +209,16 @@ Auto Reboot Menu - UTC: 2025/12/02 21:53:47.780
 After a cold power-up (first boot after power loss), the system can automatically reboot after a user-specified interval. This helps re-sync to GPS modules that report incorrect UTC time for some time after starting up (leap seconds, etc).
 
 ```
-Auto Reboot Menu - UTC: 2025/12/02 21:53:47.780
+Auto Reboot Menu - UTC: 2025/12/05 04:31:35.540
 ...
-5 - Cold Power Reboot Mins (0=Off) (0)
+5 - Cold Power Reboot [m] (0=Off) (0)
 ```
 
 ## 3.3 GPS Reset Output
 Supported hardware can trigger a reset of the onboard GPS module vie GPB6 whenever the dsPIC bootloader starts. This enables an onboard GPS module to be reset remotely along with the rest of the system.
 
-## 3.4 PTT Inhibit During Reconnect
-A brief, 100ms PTT inhibit timer prevents keying the transmitter too early when handling reconnections to the host. This protects systems that switch external configurations based on connectivity signals and avoids missed PTT events.
+## 3.4 PTT Inhibit During Connect/Disconnect
+A brief, 100ms PTT inhibit timer prevents keying the transmitter too early when handling connections/disconnections to/from the host. This protects systems that switch external configurations based on connection status and avoids collisions and missed PTT events.
 
 ---
 
@@ -272,13 +272,13 @@ RX/TX event logging allows visibility into radio events and system inputs/output
 ```
 Debug Options
 
-1-RX/TX log
-2-Stats
-16-NoTOS
-32-GPS
-64-FixGPS
+1  - RX/TX log
+2  - Stats
+16 - NoTOS
+32 - GPS
+64 - FixGPS
 
-Note: Sum values (e.g. 3=1+2)
+Note: Bitmask; Sum values (e.g. 3=1+2)
 
 Enter new value: 1
 Changed
@@ -310,13 +310,13 @@ A new compact, once-per-second status emission for both TX and RX paths. Useful 
 ```
 Debug Options
 
-1-RX/TX log
-2-Stats
-16-NoTOS
-32-GPS
-64-FixGPS
+1  - RX/TX log
+2  - Stats
+16 - NoTOS
+32 - GPS
+64 - FixGPS
 
-Note: Sum values (e.g. 3=1+2)
+Note: Bitmask; Sum values (e.g. 3=1+2)
 
 Enter new value: 3
 Changed

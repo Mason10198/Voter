@@ -5687,12 +5687,12 @@ int main(void)
 			if (sel == 20)
 			{
 				printf("Debug Options\n\n"
-					"1-RX/TX log\n"
-					"2-Stats\n"
-					"16-NoTOS\n"
-					"32-GPS\n"
-					"64-FixGPS\n\n"
-					"Note: Sum values (e.g. 3=1+2)\n\n");
+					"1  - RX/TX log\n"
+					"2  - Stats\n"
+					"16 - NoTOS\n"
+					"32 - GPS\n"
+					"64 - FixGPS\n\n"
+					"Note: Bitmask; Sum values (e.g. 3=1+2)\n\n");
 			}			printf(str_enter_newval);
 
 			if (aborted) continue;
