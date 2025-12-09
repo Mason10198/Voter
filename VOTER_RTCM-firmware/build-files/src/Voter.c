@@ -4771,7 +4771,7 @@ static void OffLineMenu()
 		menu1a[] = 
 		"9  - CTCSS [Hz] (%.1f)\n"
 		"10 - CTCSS Lev (%d)\n"
-		"11 - NoDeemp [0=Norm,1=Off] (%d)\n"
+		"11 - Deemp [0=On/Norm,1=Off] (%d)\n"
 		"12 - Offline Delay [s] (%u)\n"
 #if !defined(SMT_BOARD)
 		"13 - AuxOut [0=ConnStatus,1=Hi,2=Lo] (%d)\n"
