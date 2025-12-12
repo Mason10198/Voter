@@ -1996,21 +1996,37 @@ BOOL HasCTCSS(void)
 
 void SetCTCSSTone(float freq, WORD gain)
 {
+	static float last_freq = 0.0;
+	static WORD last_gain = 0;
+	
 	if ((freq <= 0.0) || (gain < 1))
 	{
 		tone_fac = 0;
 		tone_v1 = 0;
 		tone_v2 = 0;
 		tone_v3 = 0;
+		last_freq = 0.0;
+		last_gain = 0;
 		return;
 	}
 
-	tone_v1 = 0;
-	// Last previous two samples
-	tone_v2 = sin(-4.0 * M_PI * (freq / 8000.0)) * gain;
-	tone_v3 = sin(-2.0 * M_PI * (freq / 8000.0)) * gain;
-	// Frequency factor
-	tone_fac = 2.0 * cos(2.0 * M_PI * (freq / 8000.0)) * 32768.0;
+	// Reinitialize oscillator if frequency or gain changed, or oscillator was off
+	if ((freq != last_freq) || (gain != last_gain) || (tone_fac == 0))
+	{
+		// Force oscillator state to zero before reinitializing
+		tone_fac = 0;
+		tone_v1 = 0;
+		tone_v2 = 0;
+		tone_v3 = 0;
+		
+		// Initialize last two samples with phase offset
+		tone_v2 = sin(-4.0 * M_PI * (freq / 8000.0)) * gain;
+		tone_v3 = sin(-2.0 * M_PI * (freq / 8000.0)) * gain;
+		// Frequency factor for Goertzel oscillator
+		tone_fac = 2.0 * cos(2.0 * M_PI * (freq / 8000.0)) * 32768.0;
+		last_freq = freq;
+		last_gain = gain;
+	}
 }
 
 

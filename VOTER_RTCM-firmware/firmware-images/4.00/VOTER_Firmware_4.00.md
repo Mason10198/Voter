@@ -434,4 +434,5 @@ These changes primarily help fit new features while keeping performance stable. 
 
 # 7. Additional Quality-of-Life Improvements
 
+- Fixed a bug in the Offline Mode CTCSS Level adjustment that caused instability and runaway when attempting to adjust the CTCSS level "live". Reboot no longer required for "stable" CTCSS operation after level change.
 - Password entry is now hidden from the console after login.
